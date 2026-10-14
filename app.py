@@ -9,12 +9,12 @@ import streamlit as st
 
 st.set_page_config(page_title='DERK | Digital Ethnic Representation of Kazakhstan', page_icon='🗺️', layout='wide')
 BASE = Path(__file__).parent
-REGIONS = pd.read_csv(BASE / 'data' / 'regions.csv')
+REGIONS = pd.read_csv(BASE / "regions.csv")
 COLS = ['record_id','ethnic_group','region','platform','community_name','public_url','language','topic','followers','observed_at','source_url','verification_status','notes']
 
 @st.cache_data
 def load_data():
-    return pd.read_csv(BASE / 'data' / 'observations.csv', dtype={'record_id':'string'}).fillna('')
+    return pd.read_csv(BASE / 'observations.csv', dtype={'record_id':'string'}).fillna('')
 
 st.title('Digital Ethnic Representation of Kazakhstan')
 st.caption('DERK · Карта цифровой этнической репрезентации Казахстана · исследовательский прототип v0.1')
