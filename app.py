@@ -112,7 +112,7 @@ if mode == 'Исследовательский кабинет':
                 st.rerun()
     st.subheader('Импорт и проверка данных')
     st.write('Загрузите CSV с колонками шаблона. Файл действует в текущей сессии и **не записывается на сервер**.')
-    st.download_button('Скачать шаблон CSV', (BASE/'data'/'observations.csv').read_bytes(), 'derk_observations_template.csv', 'text/csv')
+    st.download_button('Скачать шаблон CSV', (BASE/ 'observations.csv').read_bytes(), 'derk_observations_template.csv', 'text/csv')
     uploaded = st.file_uploader('CSV наблюдений', type=['csv'])
     if uploaded:
         try:
