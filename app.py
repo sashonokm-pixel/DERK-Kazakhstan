@@ -6,15 +6,21 @@ from pathlib import Path
 import pandas as pd
 import plotly.express as px
 import streamlit as st
+from supabase import create_client
 
 st.set_page_config(page_title='DERK | Digital Ethnic Representation of Kazakhstan', page_icon='🗺️', layout='wide')
+supabase = create_client(
+    st.secrets["SUPABASE_URL"],
+    st.secrets["SUPABASE_KEY"]
+)
 BASE = Path(__file__).parent
 REGIONS = pd.read_csv(BASE / "regions.csv")
 COLS = ['record_id','ethnic_group','region','platform','community_name','public_url','language','topic','followers','observed_at','source_url','verification_status','notes']
 
-@st.cache_data
+@st.cache_data(ttl=60)
 def load_data():
-    return pd.read_csv(BASE / 'observations.csv', dtype={'record_id':'string'}).fillna('')
+    response = supabase.table("observations").select("*").execute()
+    return pd.DataFrame(response.data, columns=COLS).fillna("")
 
 st.title('Digital Ethnic Representation of Kazakhstan')
 st.caption('DERK · Карта цифровой этнической репрезентации Казахстана · исследовательский прототип v0.1')
@@ -95,8 +101,8 @@ if mode == 'Исследовательский кабинет':
             for error in errors: st.error(error)
         else:
             record = dict(zip(COLS, [str(uuid.uuid4()), group.strip(), area, site, community.strip(), url.strip(), lang.strip(), topic.strip(), int(followers), observed.isoformat(), evidence.strip(), status, note.strip()]))
-            st.session_state.working_data = pd.concat([st.session_state.working_data, pd.DataFrame([record])], ignore_index=True)
-            st.success('Наблюдение добавлено. Скачайте полную базу CSV, чтобы сохранить изменения вне сессии.')
+            supabase.table("observations").insert(record).execute()
+            st.success("Наблюдение сохранено в базе данных DERK Kazakhstan.")
             st.rerun()
     st.subheader('Редактирование и удаление записей')
     if not data.empty:
@@ -107,7 +113,8 @@ if mode == 'Исследовательский кабинет':
             invalid = edited[~edited['region'].isin(REGIONS['region']) | ~edited['verification_status'].isin(['pending','verified','rejected']) | ~edited['public_url'].astype(str).str.startswith(('https://','http://'))]
             if len(invalid): st.error('Есть некорректные регионы, статусы или ссылки. Изменения не сохранены.')
             else:
-                st.session_state.working_data = edited[COLS].copy()
+                for _, row in edited.iterrows():
+                    supabase.table("observations").update(row.drop("record_id").to_dict()).eq("record_id", row["record_id"]).execute()
                 st.success('Изменения применены в текущей сессии. Не забудьте экспортировать CSV.')
                 st.rerun()
     st.subheader('Импорт и проверка данных')
