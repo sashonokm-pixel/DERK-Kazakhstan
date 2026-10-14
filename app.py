@@ -15,7 +15,7 @@ supabase = create_client(
 )
 BASE = Path(__file__).parent
 REGIONS = pd.read_csv(BASE / "regions.csv")
-COLS = ['record_id','ethnic_group','region','platform','community_name','public_url','language','topic','followers','observed_at','source_url','verification_status','notes']
+COLS = ['record_id','ethnic_group','region','platform','community_name','public_url','language','topic','followers','observed_at','source_url','verification_status','methodology_comment']
 
 @st.cache_data(ttl=60)
 def load_data():
