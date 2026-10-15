@@ -62,6 +62,29 @@ fig = px.scatter_map(map_data, lat='lat', lon='lon', size='marker_size', color='
                      map_style='open-street-map', height=520, size_max=34)
 fig.update_layout(margin=dict(l=0,r=0,t=0,b=0), coloraxis_colorbar_title='Записей')
 st.plotly_chart(fig, use_container_width=True)
+st.subheader("Индекс цифрового присутствия (DPI)")
+
+dpi_data = (
+        filtered[
+            filtered["ethnic_group"].astype(str).str.strip().ne("")
+            & filtered["public_url"].astype(str).str.strip().ne("")
+        ]
+        .groupby("ethnic_group")["public_url"]
+        .nunique()
+        .reset_index(name="dpi")
+    )
+
+if not dpi_data.empty:
+        fig_dpi = px.pie(
+            dpi_data,
+            names="ethnic_group",
+            values="dpi",
+            hole=0.55,
+            title="Цифровое присутствие этносов"
+        )
+        st.plotly_chart(fig_dpi, use_container_width=True)
+else:
+        st.info("Пока нет данных для расчёта DPI.")
 a,b,c = st.columns(3)
 a.metric('Записей по фильтрам', len(filtered))
 b.metric('Представленных этносов', filtered['ethnic_group'].replace('',pd.NA).nunique())
