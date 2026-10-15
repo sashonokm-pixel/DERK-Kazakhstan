@@ -70,8 +70,17 @@ if filtered.empty:
     st.warning('Пока нет записей по выбранным фильтрам. Загрузите подтверждённые наблюдения в исследовательском кабинете.')
 else:
     show = ['ethnic_group','region','platform','community_name','public_url','language','observed_at','source_url','verification_status']
-    st.dataframe(filtered[show], hide_index=True, use_container_width=True)
-
+    st.dataframe(
+    filtered[show],
+    hide_index=True,
+    use_container_width=True,
+    column_config={
+        "public_url": st.column_config.LinkColumn(
+            "Ссылка на ресурс",
+            display_text="Открыть ↗️"
+        )
+    }
+)
 if mode == 'Исследовательский кабинет':
     st.divider()
     st.subheader('Добавить наблюдение вручную')
