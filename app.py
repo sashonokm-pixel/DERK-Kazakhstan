@@ -25,7 +25,10 @@ def load_data():
 st.title('Digital Ethnic Representation of Kazakhstan')
 st.caption('DERK · Карта цифровой этнической репрезентации Казахстана · исследовательский прототип v0.1')
 st.info('Карта показывает **наблюдения об открытых цифровых ресурсах**, а не этнический состав населения. Пустые регионы означают отсутствие записей в базе, а не отсутствие цифровой репрезентации.')
-mode = st.sidebar.radio('Режим', ['Публичная карта', 'Исследовательский кабинет'])
+mode = st.sidebar.radio(
+    'Разделы DERK',
+    ['Публичная карта', 'Аналитика', 'Исследовательский кабинет']
+)
 data = load_data()
 if 'working_data' not in st.session_state:
     st.session_state.working_data = data.copy()
@@ -35,11 +38,16 @@ verified = data[data['verification_status'].astype(str).str.lower().eq('verified
 if mode == 'Публичная карта':
     st.subheader('Публичная интерактивная карта')
     source = verified
-else:
+elif mode == 'Исследовательский кабинет':
     st.subheader('Исследовательский кабинет')
     st.caption('Предварительные записи доступны только в исследовательском режиме; публичная карта показывает только verified.')
     source = data
 
+if mode == 'Аналитика':
+    st.header('📊 Аналитика DERK')
+    st.subheader('Этническая статистика Казахстана — 2026')
+    st.info('Здесь будут размещаться инфографики, статистические данные и результаты исследований DERK.')
+    st.stop()
 left, middle, right = st.columns(3)
 with left:
     ethnic = st.selectbox('Этнос', ['Все'] + sorted(x for x in source['ethnic_group'].dropna().unique() if str(x).strip()))
