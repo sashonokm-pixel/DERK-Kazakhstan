@@ -198,6 +198,7 @@ if mode == 'Аналитика':
         resource_data['ethnic_group']
         .astype(str)
         .str.strip()
+        .str.capitalize()
         .map(ethnic_names)
     )
 
