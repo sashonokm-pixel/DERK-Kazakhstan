@@ -45,7 +45,7 @@ if mode == 'Аналитика':
     st.subheader('Этническая статистика Казахстана — 2026')
     st.info('Здесь будут размещаться инфографики, статистические данные и результаты исследований DERK.')
     st.stop()
-    left, middle, right = st.columns(3)
+left, middle, right = st.columns(3)
 with left:
     ethnic = st.selectbox('Этнос', ['Все'] + sorted(x for x in source['ethnic_group'].dropna().unique() if str(x).strip()))
 with middle:
