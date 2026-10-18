@@ -161,7 +161,125 @@ if mode == 'Аналитика':
         '«Другие этносы» рассчитаны как разница между общей '
         'численностью населения и суммой десяти выбранных категорий.'
     )
+    st.divider()
+    st.subheader('📈 Индекс цифровой активности этноса (ИДАЭ)')
 
+    st.caption(
+        'Количество подтверждённых цифровых ресурсов '
+        'на 10 000 представителей этнической группы.'
+    )
+
+    # Берём статистику из первой инфографики
+    idae_data = ethnic_data[
+        ethnic_data['Этнос'] != 'Другие этносы'
+    ][['Этнос', 'Численность']].copy()
+
+    # Берём подтверждённые ресурсы из Supabase
+    resource_data = verified.copy()
+
+    # Сопоставляем названия этносов
+    ethnic_names = {
+        'Казахи': 'Казахи',
+        'Русские': 'Русские',
+        'Узбеки': 'Узбеки',
+        'Уйгуры': 'Уйгуры',
+        'Татары': 'Татары и башкиры',
+        'Башкиры': 'Татары и башкиры',
+        'Татары и башкиры': 'Татары и башкиры',
+        'Немцы': 'Немцы',
+        'Азербайджанцы': 'Азербайджанцы',
+        'Корейцы': 'Корейцы',
+        'Турки': 'Турки',
+        'Турки-ахыска': 'Турки',
+        'Дунгане': 'Дунгане'
+    }
+
+    resource_data['Группа DERK'] = (
+        resource_data['ethnic_group']
+        .astype(str)
+        .str.strip()
+        .map(ethnic_names)
+    )
+
+    # Подсчитываем записи по каждой группе
+    resource_counts = (
+        resource_data
+        .dropna(subset=['Группа DERK'])
+        .groupby('Группа DERK')
+        .size()
+        .reset_index(name='Цифровые ресурсы')
+    )
+
+    idae_data = idae_data.merge(
+        resource_counts,
+        left_on='Этнос',
+        right_on='Группа DERK',
+        how='left'
+    )
+
+    idae_data['Цифровые ресурсы'] = (
+        idae_data['Цифровые ресурсы'].fillna(0).astype(int)
+    )
+
+    # Автоматический расчёт индекса
+    idae_data['ИДАЭ'] = (
+        idae_data['Цифровые ресурсы']
+        / idae_data['Численность']
+        * 10000
+    ).round(3)
+
+    idae_data = idae_data.sort_values('ИДАЭ', ascending=True)
+
+    fig_idae = px.bar(
+        idae_data,
+        x='ИДАЭ',
+        y='Этнос',
+        orientation='h',
+        color='ИДАЭ',
+        color_continuous_scale='Turbo',
+        custom_data=['Цифровые ресурсы', 'Численность']
+    )
+
+    fig_idae.update_traces(
+        hovertemplate=(
+            '<b>%{y}</b><br>'
+            'ИДАЭ: %{x:.3f}<br>'
+            'Ресурсы: %{customdata[0]}<br>'
+            'Население: %{customdata[1]:,.0f}'
+            '<extra></extra>'
+        )
+    )
+
+    fig_idae.update_layout(
+        height=600,
+        xaxis_title='Ресурсов на 10 000 человек',
+        yaxis_title='',
+        coloraxis_showscale=False
+    )
+
+    st.plotly_chart(fig_idae, use_container_width=True)
+
+    st.dataframe(
+        idae_data[
+            ['Этнос', 'Численность', 'Цифровые ресурсы', 'ИДАЭ']
+        ],
+        use_container_width=True,
+        hide_index=True
+    )
+
+    st.caption(
+        'Источник: статистика населения БНС РК за 2026 год '
+        'и подтверждённые записи базы DERK (Supabase). '
+        'ИДАЭ автоматически пересчитывается при обновлении данных.'
+    )
+
+    st.caption(
+        'Показатель отражает выявленные цифровые ресурсы, '
+        'а не интенсивность публикаций или активность пользователей. '
+        'На данном этапе учитывается количество записей; '
+        'проверка и исключение дубликатов ресурсов '
+        'будут отдельным этапом методологии.'
+    )
     st.stop()
 
 left, middle, right = st.columns(3)
