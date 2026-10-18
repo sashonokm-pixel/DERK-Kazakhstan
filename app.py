@@ -40,11 +40,130 @@ elif mode == 'Исследовательский кабинет':
     st.caption('Предварительные записи доступны только в исследовательском режиме; публичная карта показывает только verified.')
     source = data
 
+
 if mode == 'Аналитика':
     st.header('📊 Аналитика DERK')
-    st.subheader('Этническая статистика Казахстана — 2026')
-    st.info('Здесь будут размещаться инфографики, статистические данные и результаты исследований DERK.')
+    st.subheader('Этнический состав населения Казахстана — 2026')
+
+    total_population = 20499822
+
+    ethnic_data = pd.DataFrame({
+        'Этнос': [
+            'Казахи',
+            'Русские',
+            'Узбеки',
+            'Уйгуры',
+            'Татары и башкиры',
+            'Немцы',
+            'Азербайджанцы',
+            'Корейцы',
+            'Турки',
+            'Дунгане'
+        ],
+        'Численность': [
+            14664202,
+            2943022,
+            695557,
+            309164,
+            238590,
+            222890,
+            157568,
+            120821,
+            93234,
+            88165
+        ]
+    })
+
+    other_population = total_population - ethnic_data['Численность'].sum()
+
+    ethnic_data = pd.concat([
+        ethnic_data,
+        pd.DataFrame({
+            'Этнос': ['Другие этносы'],
+            'Численность': [other_population]
+        })
+    ], ignore_index=True)
+
+    ethnic_data['Доля, %'] = (
+        ethnic_data['Численность'] / total_population * 100
+    ).round(2)
+
+    st.metric('Население Казахстана', f'{total_population:,}'.replace(',', ' '))
+
+    scale = st.radio(
+        'Масштаб диаграммы',
+        ['Все категории', 'Увеличить малые группы'],
+        horizontal=True
+    )
+
+    chart_data = ethnic_data.copy()
+
+    if scale == 'Увеличить малые группы':
+        chart_data['Значение для графика'] = (
+            chart_data['Численность'] ** 0.5
+        )
+        axis_title = 'Квадратный корень численности (масштаб)'
+    else:
+        chart_data['Значение для графика'] = chart_data['Численность']
+        axis_title = 'Численность населения, человек'
+
+    chart_data = chart_data.sort_values(
+        'Численность',
+        ascending=True
+    )
+
+    fig = px.bar(
+        chart_data,
+        x='Значение для графика',
+        y='Этнос',
+        orientation='h',
+        color='Этнос',
+        color_discrete_sequence=px.colors.qualitative.Bold,
+        custom_data=['Численность', 'Доля, %']
+    )
+
+    fig.update_traces(
+        hovertemplate=(
+            '<b>%{y}</b><br>'
+            'Численность: %{customdata[0]:,.0f} человек<br>'
+            'Доля населения: %{customdata[1]:.2f}%'
+            '<extra></extra>'
+        )
+    )
+
+    fig.update_layout(
+        height=620,
+        showlegend=False,
+        xaxis_title=axis_title,
+        yaxis_title='',
+        margin=dict(l=10, r=20, t=20, b=40)
+    )
+
+    st.plotly_chart(fig, use_container_width=True)
+
+    st.subheader('Статистические данные')
+    st.dataframe(
+        ethnic_data,
+        use_container_width=True,
+        hide_index=True
+    )
+
+    st.caption(
+        'Источник: Бюро национальной статистики РК, '
+        'таблица Т-18-08-Г (рус), лист «РК», '
+        'на начало 2026 года.'
+    )
+
+    st.caption(
+        'Татары и башкиры объединены для исследования DERK. '
+        'Категория «Турки» соответствует официальной статистике; '
+        'численность турок-ахыска отдельно не подтверждена. '
+        '«Другие этносы» рассчитаны как разница между общей '
+        'численностью населения и суммой десяти выбранных категорий.'
+    )
+
     st.stop()
+
 left, middle, right = st.columns(3)
 with left:
     ethnic = st.selectbox('Этнос', ['Все'] + sorted(x for x in source['ethnic_group'].dropna().unique() if str(x).strip()))
