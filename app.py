@@ -385,25 +385,58 @@ for _, item in resources.iterrows():
             break
     if not x:
         x, y = 240, 135
-    points.append((x, y, color, url, str(item['community_name']), group))
+    points.append((x, y, color, url, str(item['community_name']), group, str(item['platform']), str(item['language'])))
 
 # Thin background strokes are decorative, not evidence of observed informational interactions.
-for idx, (x,y,color,url,name,group) in enumerate(points):
+for idx, (x,y,color,url,name,group,platform,language) in enumerate(points):
     if idx % 3 == 0:
         node_svg.append(f'<path d="M {x:.1f},{y:.1f} Q 240,130 240,130" stroke="{color}" stroke-opacity=".13" fill="none" stroke-width=".7"/>')
-for x,y,color,url,name,group in points:
-    title = html.escape(f'{name} · {group}', quote=True)
-    safe_url = html.escape(url, quote=True)
-    node_svg.append(f'<a href="{safe_url}" target="_blank" rel="noopener noreferrer"><title>{title} — открыть ресурс</title><circle cx="{x:.1f}" cy="{y:.1f}" r="9" fill="{color}" fill-opacity=".12"/><circle cx="{x:.1f}" cy="{y:.1f}" r="4.2" fill="{color}" stroke="#07182D" stroke-width="1"/></a>')
+for x,y,color,url,name,group,platform,language in points:
+    attrs = ' '.join(f'data-{k}="{html.escape(str(v), quote=True)}"' for k,v in {'name':name, 'group':group, 'platform':platform, 'language':language, 'url':url}.items())
+    node_svg.append(f'<g class="derk-node" tabindex="0" role="button" aria-label="{html.escape(name, quote=True)}" {attrs} style="cursor:pointer"><circle cx="{x:.1f}" cy="{y:.1f}" r="12" fill="{color}" fill-opacity=".12"/><circle cx="{x:.1f}" cy="{y:.1f}" r="5" fill="{color}" stroke="#07182D" stroke-width="1"/></g>')
 
-svg_html = f"""<div style="background:linear-gradient(135deg,#07152B,#112E4B);border:1px solid #244968;border-radius:20px;padding:12px;overflow:hidden;color:white;font-family:system-ui">
-<div style="display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap;padding:5px 9px"><strong>DERK · DIGITAL NETWORK</strong><span style="font-size:12px;color:#9FC9DB">Нажмите на узел для перехода ↗</span></div>
+svg_html = f"""<div id="derk-map" style="position:relative;background:linear-gradient(135deg,#07152B,#112E4B);border:1px solid #244968;border-radius:20px;padding:12px;overflow:hidden;color:white;font-family:system-ui">
+<div style="display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap;padding:5px 9px"><strong>DERK · DIGITAL NETWORK</strong><span style="font-size:12px;color:#9FC9DB">Наведите на узел или нажмите, чтобы увидеть ресурс</span></div>
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 485 280" style="width:100%;height:auto" role="img" aria-label="Схематический контур Казахстана с цифровыми ресурсами">
 <polygon points="{outline}" fill="#123653" stroke="#4EE0F5" stroke-width="2.4" stroke-linejoin="round"/>
 {''.join(node_svg)}
 </svg>
+<div id="derk-tooltip" style="display:none;position:absolute;z-index:30;max-width:245px;background:#F8FCFF;color:#12253C;border-radius:12px;padding:12px;box-shadow:0 10px 35px #0008;font-size:13px;pointer-events:none"></div>
 <div style="padding:0 9px 9px;font-size:11px;color:#8FAEBF">Узлы — уникальные ссылки; расположение условное, линии декоративные. Это не географическая карта и не доказательство информационных связей.</div></div>"""
-components.html(svg_html, height=350, scrolling=False)
+svg_html += """
+<script>
+(() => {
+ const root = document.getElementById('derk-map');
+ const tip = document.getElementById('derk-tooltip');
+ let pinned = false;
+ const escapeHtml = s => String(s || '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+ function render(node, pin) {
+   const d = node.dataset;
+   pinned = pin;
+   const safeUrl = /^https?:\/\//i.test(d.url || '') ? d.url : '#';
+   tip.innerHTML = '<div style="font-weight:750;font-size:14px;margin-bottom:5px">'+escapeHtml(d.name || 'Без названия')+'</div>'+
+      '<div style="color:#51647A;margin-bottom:9px">'+escapeHtml(d.group)+' · '+escapeHtml(d.platform)+(d.language ? ' · '+escapeHtml(d.language) : '')+'</div>'+
+      (pin ? '<a href="'+escapeHtml(safeUrl)+'" target="_blank" rel="noopener noreferrer" style="display:inline-block;background:#086C9E;color:white;padding:8px 10px;border-radius:7px;text-decoration:none">Открыть ресурс ↗</a>' : '<span style="font-size:11px;color:#66798A">Нажмите для перехода к ссылке</span>');
+   tip.style.display = 'block';
+   tip.style.pointerEvents = pin ? 'auto' : 'none';
+   const r = root.getBoundingClientRect(), n = node.getBoundingClientRect();
+   let x = n.left + n.width/2 - r.left + 14;
+   let y = n.top - r.top - 8;
+   const maxX = root.clientWidth - Math.min(245, root.clientWidth - 18) - 8;
+   tip.style.left = Math.max(8, Math.min(x, maxX)) + 'px';
+   tip.style.top = Math.max(8, y) + 'px';
+ }
+ root.querySelectorAll('.derk-node').forEach(node => {
+   node.addEventListener('mouseenter', () => { if (!pinned) render(node, false); });
+   node.addEventListener('mouseleave', () => { if (!pinned) tip.style.display='none'; });
+   node.addEventListener('click', e => { e.stopPropagation(); render(node, true); });
+   node.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); render(node, true); } });
+ });
+ root.addEventListener('click', e => { if (!e.target.closest('.derk-node') && !e.target.closest('#derk-tooltip')) { pinned=false;tip.style.display='none'; } });
+})();
+</script>
+"""
+components.html(svg_html, height=390, scrolling=False)
 
 st.subheader('Цифровые ресурсы')
 if resources.empty:
