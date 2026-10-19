@@ -75,14 +75,61 @@ PANEL_TRANSLATIONS = {
  'en': {'population':'Ethnic composition','population_sub':'Kazakhstan population · 2026','dpi_sub':'Resources by ethnic group ↗','platform_sub':'Platform distribution ↗','idae_sub':'Resources per 10,000 people ↗','links_sub':'Connection methodology ↗','click':'Click to open analytics'}
 }
 
-st.session_state.setdefault('derk_language','ru')
+st.session_state.setdefault('derk_language','en')
 lang_cols = st.columns([6, 1.5])
 with lang_cols[1]:
-    st.selectbox('Language / Тіл / Язык', ['ru','kk','en'], format_func=lambda v: {'ru':'РУС','kk':'ҚАЗ','en':'ENG'}[v], key='derk_language')
+    st.selectbox('Language / Тіл / Язык', ['en','kk','ru'], format_func=lambda v: {'ru':'РУС','kk':'ҚАЗ','en':'ENG'}[v], key='derk_language')
 L = LANGS[st.session_state.derk_language]
 
+# Quiet ambient synthesizer. The browser may block audible autoplay; user can enable it.
+# Kept outside the map so the control also appears on Analytics and Research pages.
+import json as _derk_json
+_ambient_labels = {
+    'en': ['♫ Ambient sound: on', '♫ Ambient sound: off', 'Sound is blocked by your browser — tap to enable'],
+    'kk': ['♫ Фондық дыбыс: қосулы', '♫ Фондық дыбыс: өшірулі', 'Браузер дыбысты бұғаттады — қосу үшін басыңыз'],
+    'ru': ['♫ Фоновый звук: включён', '♫ Фоновый звук: выключен', 'Браузер заблокировал звук — нажмите для включения'],
+}
+_ambient_html = r'''<!doctype html><html><head><meta name="viewport" content="width=device-width,initial-scale=1"/>
+<style>body{margin:0;background:transparent;font-family:Inter,system-ui,Arial,sans-serif;color:#bdefff}
+button{background:#102b46;color:#c9f1ff;border:1px solid #3b7797;border-radius:999px;padding:9px 15px;cursor:pointer;font-size:12px;min-height:39px}
+button:hover{border-color:#6fe8fa}small{color:#94b6cc;margin-left:8px;font-size:11px}</style></head>
+<body><button id="ambientToggle" type="button" aria-pressed="false"></button><small id="ambientStatus"></small>
+<script>(()=>{
+const labels=__LABELS__,button=document.getElementById('ambientToggle'),status=document.getElementById('ambientStatus');
+let desired=true,ctx=null,master=null,oscillators=[],pulse=null;
+try{const saved=localStorage.getItem('derk_ambient_enabled');if(saved==='false')desired=false}catch(e){}
+const Audio=window.AudioContext||window.webkitAudioContext;
+function paint(){button.textContent=desired?labels[0]:labels[1];button.setAttribute('aria-pressed',String(desired))}
+function makeAudio(){
+ if(!Audio)return false;
+ if(ctx)return true;
+ ctx=new Audio();master=ctx.createGain();master.gain.value=0;master.connect(ctx.destination);
+ const tones=[[110,'sine',0.012],[164.81,'sine',0.008],[220,'triangle',0.003],[329.63,'sine',0.002]];
+ tones.forEach(([freq,type,level],i)=>{
+   const o=ctx.createOscillator(),g=ctx.createGain();o.type=type;o.frequency.value=freq;
+   const l=ctx.createOscillator(),lg=ctx.createGain();l.type='sine';l.frequency.value=.045+i*.013;lg.gain.value=level*.35;
+   l.connect(lg);lg.connect(g.gain);g.gain.value=level;
+   o.connect(g);g.connect(master);o.start();l.start();oscillators.push(o,l);
+ });
+ return true;
+}
+async function start(){if(!desired||!makeAudio())return;try{
+ await ctx.resume();master.gain.cancelScheduledValues(ctx.currentTime);
+ master.gain.setTargetAtTime(1,ctx.currentTime,1.5);status.textContent='';
+ }catch(e){status.textContent=labels[2]}}
+function stop(){if(ctx&&master){master.gain.cancelScheduledValues(ctx.currentTime);master.gain.setTargetAtTime(0,ctx.currentTime,.35)}}
+button.addEventListener('click',()=>{desired=!desired;try{localStorage.setItem('derk_ambient_enabled',String(desired))}catch(e){}paint();if(desired)start();else{stop();status.textContent=''}});
+paint();if(desired){start();
+ // Browsers can require a gesture. Try first interaction on the main page if accessible.
+ try{window.parent.document.addEventListener('pointerdown',()=>{if(desired)start()},{once:true,capture:true})}catch(e){}
+}
+window.addEventListener('pagehide',()=>{stop();if(ctx)ctx.close().catch(()=>{})});
+})();</script></body></html>'''
+_ambient_html = _ambient_html.replace('__LABELS__',_derk_json.dumps(_ambient_labels[st.session_state.derk_language], ensure_ascii=False))
+components.html(_ambient_html, height=53, scrolling=False)
+
 st.title('Digital Ethnic Representation of Kazakhstan')
-st.caption('DERK 3.0 · ' + L['subtitle'])
+st.caption('DERK 3.4 · ' + L['subtitle'])
 # The public view is a conceptual network, not a geographic population map.
 requested_view = str(st.query_params.get('derk_view', ''))
 nav_options = ['Публичная карта', 'Аналитика', 'Исследовательский кабинет']
@@ -507,15 +554,15 @@ if mode == 'Публичная карта':
     .footer{position:absolute;z-index:2;left:22%;right:22%;bottom:13px;text-align:center;color:#7898aa;font-size:10px;pointer-events:none}
     @media(max-width:680px){.shell{min-height:755px}.head{padding:14px}.head strong{font-size:11px}.head span{display:none}.network{top:235px;height:300px}.panel{min-width:0;width:calc(50% - 20px);max-width:none;padding:10px;backdrop-filter:none}.panel .value{font-size:19px}.tc{top:155px;left:50%;width:calc(100% - 24px);max-width:none;min-width:0;transform:translateX(-50%)}.tc:hover,.tc:focus-visible{transform:translate(-50%,-3px)}.tl{top:52px;left:12px}.tr{top:52px;right:12px}.bl{bottom:68px;left:12px}.br{bottom:68px;right:12px}.footer{left:15px;right:15px;bottom:8px}.tip{max-width:min(260px,calc(100% - 24px));font-size:14px;padding:14px}.tip a{padding:11px 14px;min-height:44px}}
     </style>
-    <div class="shell" id="shell"><div class="head"><strong>DERK</strong><button class="sound-btn" id="soundBtn" type="button" aria-label="Play DERK sound logo">▶ DERK SOUND · 10s</button></div>
+    <div class="shell" id="shell"><div class="head"><strong>DERK</strong></div>
       <svg class="network" id="network" viewBox="0 0 1000 570" xmlns="http://www.w3.org/2000/svg" aria-label="Interactive digital resource network">
       <defs><pattern id="grid" width="42" height="42" patternUnits="userSpaceOnUse"><path d="M42 0H0V42" fill="none" stroke="#286182" stroke-width=".6" opacity=".24"/></pattern><radialGradient id="glow"><stop stop-color="#164867" stop-opacity=".35"/><stop offset="1" stop-color="#164867" stop-opacity="0"/></radialGradient></defs>
       <rect width="1000" height="570" fill="url(#grid)"/><ellipse cx="500" cy="285" rx="440" ry="270" fill="url(#glow)"/><g id="world"></g></svg>
-      <a class="panel tl" id="linkDpi" target="_top"><div class="label" id="dpiLabel"></div><div class="value" id="nCount"></div><div class="sub" id="nGroups"></div></a>
-      <a class="panel tr" id="linkPlatforms" target="_top"><div class="label" id="platformLabel"></div><div class="value" id="pValue"></div><div class="sub" id="pSub"></div></a>
-      <a class="panel bl" id="linkIdae" target="_top"><div class="label" id="idaeLabel"></div><div class="value">IDAE</div><div class="sub" id="idaeSub"></div></a>
-      <a class="panel br" id="linkConnections" target="_top"><div class="label" id="linksLabel"></div><div class="value">—</div><div class="sub" id="linksSub"></div></a>
-      <a class="panel tc" id="linkPopulation" target="_top"><div class="label" id="populationLabel"></div><div class="value">20 499 822</div><div class="sub" id="populationSub"></div></a><div class="tip" id="tip"></div><div class="footer" id="explain"></div>
+      <a class="panel tl" id="linkDpi" target="_blank" rel="noopener noreferrer"><div class="label" id="dpiLabel"></div><div class="value" id="nCount"></div><div class="sub" id="nGroups"></div></a>
+      <a class="panel tr" id="linkPlatforms" target="_blank" rel="noopener noreferrer"><div class="label" id="platformLabel"></div><div class="value" id="pValue"></div><div class="sub" id="pSub"></div></a>
+      <a class="panel bl" id="linkIdae" target="_blank" rel="noopener noreferrer"><div class="label" id="idaeLabel"></div><div class="value">IDAE</div><div class="sub" id="idaeSub"></div></a>
+      <a class="panel br" id="linkConnections" target="_blank" rel="noopener noreferrer"><div class="label" id="linksLabel"></div><div class="value">—</div><div class="sub" id="linksSub"></div></a>
+      <a class="panel tc" id="linkPopulation" target="_blank" rel="noopener noreferrer"><div class="label" id="populationLabel"></div><div class="value">20 499 822</div><div class="sub" id="populationSub"></div></a><div class="tip" id="tip"></div><div class="footer" id="explain"></div>
     </div>
     <script>
     (()=>{
@@ -526,50 +573,6 @@ if mode == 'Публичная карта':
       set('populationLabel',t.population);set('populationSub',t.population_sub);
        [['linkPopulation','population'],['linkDpi','dpi'],['linkPlatforms','platforms'],['linkIdae','idae'],['linkConnections','connections']].forEach(([id,key])=>document.getElementById(id).href=links[key]);
        set('nCount',__COUNT__);set('nGroups',__GROUPS__);set('pValue',__TOP_PLATFORM__);set('pSub',__TOP_PCT__+' · ↗');set('idaeSub',t.idae_sub);
-      // Optional 10-second synthesized sound logo; browsers require a user gesture.
-      // No external audio, tracking, downloads, or automatic playback.
-      const soundBtn=document.getElementById('soundBtn');
-      const soundLabels={ru:['▶ ЗВУК DERK · 10 с','■ ОСТАНОВИТЬ','▶ ПОВТОРИТЬ'],kk:['▶ DERK ДЫБЫСЫ · 10 с','■ ТОҚТАТУ','▶ ҚАЙТАЛАУ'],en:['▶ DERK SOUND · 10s','■ STOP','▶ REPLAY']};
-      const soundLang=__SOUND_LANG__;
-      const soundText=soundLabels[soundLang]||soundLabels.ru;
-      soundBtn.textContent=soundText[0];
-      let audioCtx=null, soundActive=false, finishTimer=null, activeVoices=[];
-      function stopSound(){
-        if(finishTimer){clearTimeout(finishTimer);finishTimer=null;}
-        activeVoices.forEach(v=>{try{v.gain.gain.cancelScheduledValues(audioCtx.currentTime);v.gain.gain.setTargetAtTime(0,audioCtx.currentTime,.035);v.osc.stop(audioCtx.currentTime+.2)}catch(e){}});
-        activeVoices=[];soundActive=false;soundBtn.textContent=soundText[2];soundBtn.setAttribute('aria-pressed','false');
-      }
-      soundBtn.addEventListener('click',async()=>{
-        if(soundActive){stopSound();return;}
-        const AudioContextCtor=window.AudioContext||window.webkitAudioContext;
-        if(!AudioContextCtor){soundBtn.textContent='Audio unavailable';return;}
-        try{
-          if(!audioCtx)audioCtx=new AudioContextCtor();
-          await audioCtx.resume();
-          const start=audioCtx.currentTime+.04;
-          soundActive=true;soundBtn.textContent=soundText[1];soundBtn.setAttribute('aria-pressed','true');
-          const master=audioCtx.createGain();master.gain.value=.28;master.connect(audioCtx.destination);
-          const notes=[
-            [0,110,4.5,'sine',.12],[0,164.81,5.0,'sine',.055],
-            [1.2,329.63,2.4,'sine',.038],[2.6,392,2.6,'triangle',.022],
-            [4.1,493.88,2.7,'sine',.032],[5.3,659.25,2.3,'sine',.028],
-            [6.7,587.33,2.3,'sine',.025],[7.8,440,2.15,'sine',.02],
-            [5.2,130.81,4.7,'sine',.065]
-          ];
-          notes.forEach(([offset,freq,duration,type,volume])=>{
-            const osc=audioCtx.createOscillator(),gain=audioCtx.createGain();
-            osc.type=type;osc.frequency.setValueAtTime(freq,start+offset);
-            const a=start+offset,b=Math.min(start+10,a+duration);
-            gain.gain.setValueAtTime(0,a);
-            gain.gain.linearRampToValueAtTime(volume,a+.22);
-            gain.gain.setValueAtTime(volume*.85,Math.max(a+.23,b-.75));
-            gain.gain.exponentialRampToValueAtTime(.0001,b);
-            osc.connect(gain);gain.connect(master);osc.start(a);osc.stop(b+.04);
-            activeVoices.push({osc,gain});
-          });
-          finishTimer=setTimeout(()=>{soundActive=false;activeVoices=[];soundBtn.textContent=soundText[2];soundBtn.setAttribute('aria-pressed','false')},10050);
-        }catch(e){soundActive=false;soundBtn.textContent=soundText[2]}
-      });
       const NS='http://www.w3.org/2000/svg';const make=(name,attrs)=>{const e=document.createElementNS(NS,name);Object.entries(attrs).forEach(([k,v])=>e.setAttribute(k,v));return e};
       // Faint decorative ambient points only; no resource-to-resource connections asserted.
       for(let i=0;i<85;i++){const x=(i*177.7)%1000,y=(i*97.31)%570;world.appendChild(make('circle',{cx:x,cy:y,r:'.9',fill:'#70a8c6',opacity:'.20'}))}
@@ -596,8 +599,23 @@ if mode == 'Публичная карта':
        .replace('__GROUPS__',json.dumps(str(resources['ethnic_group'].nunique())+' '+L['groups'].lower()))
        .replace('__TOP_PLATFORM__',json.dumps(top_platform,ensure_ascii=False))
        .replace('__TOP_PCT__',json.dumps(f'{pct:.1f}%'))
-       .replace('__SOUND_LANG__',json.dumps(st.session_state.derk_language)))
+)
     components.html(panel_html,height=780,scrolling=False)
+    # Native Streamlit links work even when an embedded iframe blocks navigation.
+    st.caption({'en':'Open an analytical indicator (also available from the five map monitors):',
+                'kk':'Аналитикалық көрсеткішті ашу (картадағы бес панельден де қолжетімді):',
+                'ru':'Открыть аналитический показатель (также доступен с пяти мониторов карты):'}[st.session_state.derk_language])
+    _nav_labels = {
+        'en':['Population','DPI','IDAE','Platforms','Connections'],
+        'kk':['Халық саны','DPI','ИДАЭ','Платформалар','Байланыстар'],
+        'ru':['Численность этносов','DPI','ИДАЭ','Платформы','Связи'],
+    }[st.session_state.derk_language]
+    _nav_sections = ['population','dpi','idae','platforms','connections']
+    _nav_cols = st.columns(5)
+    for _c, _label, _section in zip(_nav_cols, _nav_labels, _nav_sections):
+        with _c:
+            st.link_button(_label + ' ↗', links_json and app_base_url + '?derk_view=analytics&derk_section=' + _section, use_container_width=True)
+
     st.subheader(L['resources'])
     st.caption(L['listnote'])
     if resources.empty: st.info(L['empty'])
