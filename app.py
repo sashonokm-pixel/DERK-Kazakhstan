@@ -178,7 +178,13 @@ button.addEventListener('click',()=>{
  try{localStorage.setItem('derk_ambient_enabled',String(desired))}catch(e){}
  if(desired)start();else stop();
 });
-paint();if(desired)start();
+paint();
+// Request audible playback immediately, as soon as the audio controller loads.
+if(desired){start();}
+// Retry on focus/visibility changes, useful when the tab is restored.
+window.addEventListener('focus',()=>{if(desired&&!playing)start()});
+document.addEventListener('visibilitychange',()=>{if(!document.hidden&&desired&&!playing)start()});
+document.addEventListener('keydown',()=>{if(desired&&!playing)start()},{capture:true});
 // Browsers may allow sound only after a gesture. A click anywhere in the app can retry.
 document.addEventListener('pointerdown',e=>{if(desired&&!playing&&e.target!==button)start()},{capture:true});
 try{window.parent.document.addEventListener('pointerdown',()=>{if(desired&&!playing)start()},{capture:true})}catch(e){}
@@ -189,7 +195,7 @@ _ambient_html = _ambient_html.replace('__LABELS__',_derk_json.dumps(_ambient_lab
 components.html(_ambient_html, height=53, scrolling=False)
 
 st.title('Digital Ethnic Representation of Kazakhstan')
-st.caption('DERK 3.6 · ' + L['subtitle'])
+st.caption('DERK 3.7 · ' + L['subtitle'])
 # The public view is a conceptual network, not a geographic population map.
 requested_view = str(st.query_params.get('derk_view', ''))
 nav_options = ['Публичная карта', 'Аналитика', 'Исследовательский кабинет']
