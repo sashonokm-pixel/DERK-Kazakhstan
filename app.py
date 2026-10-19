@@ -85,9 +85,9 @@ L = LANGS[st.session_state.derk_language]
 # Kept outside the map so the control also appears on Analytics and Research pages.
 import json as _derk_json
 _ambient_labels = {
-    'en': ['♫ Ambient sound: on', '♫ Ambient sound: off', 'Sound is blocked by your browser — tap to enable'],
-    'kk': ['♫ Фондық дыбыс: қосулы', '♫ Фондық дыбыс: өшірулі', 'Браузер дыбысты бұғаттады — қосу үшін басыңыз'],
-    'ru': ['♫ Фоновый звук: включён', '♫ Фоновый звук: выключен', 'Браузер заблокировал звук — нажмите для включения'],
+    'en': ['♫ Ambient sound: on', '♫ Ambient sound: off', '♫ Enable sound (browser permission required)'],
+    'kk': ['♫ Фондық дыбыс: қосулы', '♫ Фондық дыбыс: өшірулі', '♫ Дыбысты қосу (браузер рұқсаты қажет)'],
+    'ru': ['♫ Фоновый звук: включён', '♫ Фоновый звук: выключен', '♫ Включить звук (требуется разрешение браузера)'],
 }
 _ambient_html = r'''<!doctype html><html><head><meta name="viewport" content="width=device-width,initial-scale=1"/>
 <style>body{margin:0;background:transparent;font-family:Inter,system-ui,Arial,sans-serif;color:#bdefff}
@@ -96,7 +96,7 @@ button:hover{border-color:#6fe8fa}small{color:#94b6cc;margin-left:8px;font-size:
 <body><button id="ambientToggle" type="button" aria-pressed="false"></button><small id="ambientStatus"></small>
 <script>(()=>{
 const labels=__LABELS__,button=document.getElementById('ambientToggle'),status=document.getElementById('ambientStatus');
-let desired=true,ctx=null,master=null,delay=null,feedback=null,filter=null;
+let desired=true,playing=false,ctx=null,master=null,delay=null,feedback=null,filter=null;
 let timer=null,nextNote=0,step=0;
 try{const saved=localStorage.getItem('derk_ambient_enabled');if(saved==='false')desired=false}catch(e){}
 const Audio=window.AudioContext||window.webkitAudioContext;
@@ -106,7 +106,7 @@ const BPM=106,STEP=60/BPM/2;
 const arp=[0,7,12,15,12,7,3,7,0,7,10,15,19,15,10,7,3,10,15,19,15,10,7,10,0,7,12,19,15,12,7,3];
 const bass=[0,0,3,3,8,8,7,7];
 const hz=n=>440*Math.pow(2,(n-69)/12);
-function paint(){button.textContent=desired?labels[0]:labels[1];button.setAttribute('aria-pressed',String(desired))}
+function paint(){button.textContent=!desired?labels[1]:(playing?labels[0]:labels[2]);button.setAttribute('aria-pressed',String(playing));}
 function makeAudio(){
  if(!Audio)return false;
  if(ctx)return true;
@@ -159,24 +159,37 @@ function schedule(){
   nextNote+=STEP;step++;
  }
 }
-async function start(){if(!desired||!makeAudio())return;try{
- await ctx.resume();master.gain.cancelScheduledValues(ctx.currentTime);
- master.gain.setTargetAtTime(.48,ctx.currentTime,.65);
- if(!timer){nextNote=ctx.currentTime+.06;timer=setInterval(schedule,60);schedule()}
- status.textContent='';
- }catch(e){status.textContent=labels[2]}}
-function stop(){if(ctx&&master){master.gain.cancelScheduledValues(ctx.currentTime);master.gain.setTargetAtTime(0,ctx.currentTime,.15)}if(timer){clearInterval(timer);timer=null}}
-button.addEventListener('click',()=>{desired=!desired;try{localStorage.setItem('derk_ambient_enabled',String(desired))}catch(e){}paint();if(desired)start();else{stop();status.textContent=''}});
-paint();if(desired){start();
- try{window.parent.document.addEventListener('pointerdown',()=>{if(desired)start()},{once:true,capture:true})}catch(e){}
+async function start(){
+ if(!desired||!makeAudio()){paint();return}
+ try{
+  await ctx.resume();
+  if(ctx.state!=='running'){playing=false;paint();return}
+  master.gain.cancelScheduledValues(ctx.currentTime);
+  master.gain.setTargetAtTime(.48,ctx.currentTime,.65);
+  if(!timer){nextNote=ctx.currentTime+.06;timer=setInterval(schedule,60);schedule()}
+  playing=true;status.textContent='';paint();
+ }catch(e){playing=false;paint()}
 }
+function stop(){playing=false;if(ctx&&master){master.gain.cancelScheduledValues(ctx.currentTime);master.gain.setTargetAtTime(0,ctx.currentTime,.15)}if(timer){clearInterval(timer);timer=null}paint()}
+button.addEventListener('click',()=>{
+ // If autoplay was blocked, the first click should ENABLE audio, not disable it.
+ if(desired&&!playing){start();return}
+ desired=!desired;
+ try{localStorage.setItem('derk_ambient_enabled',String(desired))}catch(e){}
+ if(desired)start();else stop();
+});
+paint();if(desired)start();
+// Browsers may allow sound only after a gesture. A click anywhere in the app can retry.
+document.addEventListener('pointerdown',e=>{if(desired&&!playing&&e.target!==button)start()},{capture:true});
+try{window.parent.document.addEventListener('pointerdown',()=>{if(desired&&!playing)start()},{capture:true})}catch(e){}
+if(ctx)ctx.onstatechange=()=>{playing=ctx.state==='running'&&desired;paint()};
 window.addEventListener('pagehide',()=>{stop();if(ctx)ctx.close().catch(()=>{})});
 })();</script></body></html>'''
 _ambient_html = _ambient_html.replace('__LABELS__',_derk_json.dumps(_ambient_labels[st.session_state.derk_language], ensure_ascii=False))
 components.html(_ambient_html, height=53, scrolling=False)
 
 st.title('Digital Ethnic Representation of Kazakhstan')
-st.caption('DERK 3.5 · ' + L['subtitle'])
+st.caption('DERK 3.6 · ' + L['subtitle'])
 # The public view is a conceptual network, not a geographic population map.
 requested_view = str(st.query_params.get('derk_view', ''))
 nav_options = ['Публичная карта', 'Аналитика', 'Исследовательский кабинет']
