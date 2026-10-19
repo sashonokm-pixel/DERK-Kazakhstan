@@ -546,8 +546,18 @@ if mode == 'Публичная карта':
     source = verified
     filters = st.columns(2)
     with filters[0]:
-        ethnic_options = ['__all__'] + sorted(x for x in source['ethnic_group'].dropna().astype(str).unique() if x.strip())
-        ethnic = st.selectbox(L['ethnic'], ethnic_options, format_func=lambda x: L['all'] if x == '__all__' else x)
+        # Kazakhs are a demographic reference mode, not a tenth research sample.
+        ethnic_options = ['__all__', '__kazakhs__'] + sorted(
+            x for x in source['ethnic_group'].dropna().astype(str).unique()
+            if x.strip() and x.strip().casefold() not in ('казахи', 'қазақтар', 'kazakhs')
+        )
+        ethnic = st.selectbox(
+            L['ethnic'], ethnic_options,
+            format_func=lambda x: (L['all'] if x == '__all__' else
+                {'en':'Kazakhs', 'kk':'Қазақтар', 'ru':'Казахи'}[st.session_state.derk_language]
+                if x == '__kazakhs__' else x)
+        )
+        kazakh_reference_mode = ethnic == '__kazakhs__'
     with filters[1]:
         platform_options = ['__all__'] + sorted(x for x in source['platform'].dropna().astype(str).unique() if x.strip())
         platform = st.selectbox(L['platform'], platform_options, format_func=lambda x: L['all'] if x == '__all__' else x)
@@ -562,7 +572,7 @@ if mode == 'Публичная карта':
     all_verified = source.copy()
     all_verified['_url_key'] = all_verified['public_url'].apply(canonical_url)
     all_verified = all_verified[all_verified['_url_key'].ne('')].drop_duplicates(['ethnic_group','_url_key'])
-    group_count = len(all_verified[all_verified['ethnic_group'].eq(ethnic)]) if ethnic != '__all__' else 0
+    group_count = len(all_verified[all_verified['ethnic_group'].eq(ethnic)]) if ethnic not in ('__all__', '__kazakhs__') else 0
     share = 100 * group_count / len(all_verified) if len(all_verified) else 0
     PALETTE = ['#39E0F5','#B299FF','#FFB765','#6EE7B7','#FB7185','#60A5FA','#F9A8D4','#FACC15','#2DD4BF']
     groups = sorted(source['ethnic_group'].dropna().astype(str).loc[lambda x:x.str.strip().ne('')].unique())
@@ -594,6 +604,19 @@ if mode == 'Публичная карта':
     counts = resources['platform'].value_counts()
     top_platform = str(counts.index[0]) if len(counts) else '—'
     pct = (100*counts.iloc[0]/len(resources)) if len(resources) else 0
+    # The turquoise field is a conceptual reference visualization, not resource data.
+    reference_info = {
+        'en': {'name':'Kazakhs', 'label':'Official population · beginning of 2026',
+               'people':'people', 'source':'Source: Bureau of National Statistics of Kazakhstan, table T-18-08-G.',
+               'note':'Demographic reference only. Not included in the nine-group digital-resource indices.'},
+        'kk': {'name':'Қазақтар', 'label':'Ресми халық саны · 2026 жылдың басы',
+               'people':'адам', 'source':'Дереккөз: Қазақстан Республикасының Ұлттық статистика бюросы, Т-18-08-Г кестесі.',
+               'note':'Тек демографиялық анықтама. Тоғыз этностың цифрлық индекстеріне қосылмайды.'},
+        'ru': {'name':'Казахи', 'label':'Официальная численность · начало 2026 года',
+               'people':'человек', 'source':'Источник: Бюро национальной статистики РК, таблица Т-18-08-Г.',
+               'note':'Только демографическая справка. Не входит в индексы девяти исследуемых этносов.'},
+    }[st.session_state.derk_language]
+    reference_json = json.dumps(reference_info, ensure_ascii=False).replace('<','\u003c').replace('>','\u003e')
     data_json = json.dumps(nodes,ensure_ascii=False).replace('<','\u003c').replace('>','\u003e').replace('&','\u0026')
     strings_json = json.dumps({**{k:L[k] for k in ['tip','explain','nodes','dpi','platforms','idae','links','links_empty','open']},
                                **PANEL_TRANSLATIONS[st.session_state.derk_language]},ensure_ascii=False).replace('<','\u003c')
@@ -618,7 +641,10 @@ if mode == 'Публичная карта':
     .dot{cursor:pointer;outline:none}.dot .halo{opacity:.14;transition:opacity .2s,r .2s}.dot:hover .halo,.dot:focus .halo{opacity:.38}.dot .hit-area{pointer-events:all}
     .tip{display:none;position:absolute;z-index:8;max-width:265px;background:#102b47;color:#f4fbff;border:1px solid #4cbad8;border-radius:12px;padding:13px;box-shadow:0 12px 35px #000b;font-size:13px;line-height:1.5}.tip a{display:inline-block;margin-top:8px;background:#176488;color:white;text-decoration:none;border-radius:7px;padding:7px 10px}.tip small{color:#a3c5d6}
     .footer{position:absolute;z-index:2;left:22%;right:22%;bottom:13px;text-align:center;color:#7898aa;font-size:10px;pointer-events:none}
-    @media(max-width:680px){.shell{min-height:755px}.head{padding:14px}.head strong{font-size:11px}.head span{display:none}.network{top:235px;height:300px}.panel{min-width:0;width:calc(50% - 20px);max-width:none;padding:10px;backdrop-filter:none}.panel .value{font-size:19px}.tc{top:155px;left:50%;width:calc(100% - 24px);max-width:none;min-width:0;transform:translateX(-50%)}.tc:hover,.tc:focus-visible{transform:translate(-50%,-3px)}.tl{top:52px;left:12px}.tr{top:52px;right:12px}.bl{bottom:68px;left:12px}.br{bottom:68px;right:12px}.footer{left:15px;right:15px;bottom:8px}.tip{max-width:min(260px,calc(100% - 24px));font-size:14px;padding:14px}.tip a{padding:11px 14px;min-height:44px}}
+    .kazakh-reference{display:none;position:absolute;z-index:4;top:51%;left:50%;transform:translate(-50%,-50%);width:min(350px,37%);text-align:center;background:rgba(5,29,44,.90);border:1px solid #49e3e3;border-radius:18px;padding:20px 17px;box-shadow:0 0 45px #0ccad43d, inset 0 0 28px #0ccad412;backdrop-filter:blur(10px)}
+    .kazakh-reference .k-name{font-size:22px;font-weight:800;color:#c7ffff}.kazakh-reference .k-count{font-size:clamp(24px,3vw,35px);font-weight:800;color:#6af9f3;letter-spacing:.02em;margin:9px 0}.kazakh-reference .k-small{font-size:11px;color:#a6d7df;line-height:1.5}.kazakh-reference .k-note{margin-top:9px;color:#d2eff1;font-size:11px;line-height:1.5}
+    .shell.kazakh-mode .kazakh-reference{display:block}.shell.kazakh-mode .network{filter:drop-shadow(0 0 18px #13ddd67a)}
+    @media(max-width:680px){.shell{min-height:755px}.head{padding:14px}.head strong{font-size:11px}.head span{display:none}.network{top:235px;height:300px}.panel{min-width:0;width:calc(50% - 20px);max-width:none;padding:10px;backdrop-filter:none}.panel .value{font-size:19px}.tc{top:155px;left:50%;width:calc(100% - 24px);max-width:none;min-width:0;transform:translateX(-50%)}.tc:hover,.tc:focus-visible{transform:translate(-50%,-3px)}.tl{top:52px;left:12px}.tr{top:52px;right:12px}.bl{bottom:68px;left:12px}.br{bottom:68px;right:12px}.footer{left:15px;right:15px;bottom:8px}.tip{max-width:min(260px,calc(100% - 24px));font-size:14px;padding:14px}.tip a{padding:11px 14px;min-height:44px}.kazakh-reference{top:51%;width:calc(100% - 45px);max-width:360px;padding:14px 12px}.kazakh-reference .k-name{font-size:18px}.kazakh-reference .k-count{font-size:26px}.kazakh-reference .k-small,.kazakh-reference .k-note{font-size:10px}}
     </style>
     <div class="shell" id="shell"><div class="head"><strong>DERK</strong></div>
       <svg class="network" id="network" viewBox="0 0 1000 570" xmlns="http://www.w3.org/2000/svg" aria-label="Interactive digital resource network">
@@ -628,18 +654,38 @@ if mode == 'Публичная карта':
       <a class="panel tr" id="linkPlatforms" target="_blank" rel="noopener noreferrer"><div class="label" id="platformLabel"></div><div class="value" id="pValue"></div><div class="sub" id="pSub"></div></a>
       <a class="panel bl" id="linkIdae" target="_blank" rel="noopener noreferrer"><div class="label" id="idaeLabel"></div><div class="value">IDAE</div><div class="sub" id="idaeSub"></div></a>
       <a class="panel br" id="linkConnections" target="_blank" rel="noopener noreferrer"><div class="label" id="linksLabel"></div><div class="value">—</div><div class="sub" id="linksSub"></div></a>
-      <a class="panel tc" id="linkPopulation" target="_blank" rel="noopener noreferrer"><div class="label" id="populationLabel"></div><div class="value">20 499 822</div><div class="sub" id="populationSub"></div></a><div class="tip" id="tip"></div><div class="footer" id="explain"></div>
+      <a class="panel tc" id="linkPopulation" target="_blank" rel="noopener noreferrer"><div class="label" id="populationLabel"></div><div class="value">20 499 822</div><div class="sub" id="populationSub"></div></a>
+      <div class="kazakh-reference" id="kazakhReference" role="status" aria-live="polite"><div class="k-name" id="kazakhName"></div><div class="k-small" id="kazakhLabel"></div><div class="k-count">14 664 202</div><div class="k-small" id="kazakhPeople"></div><div class="k-note" id="kazakhSource"></div><div class="k-note" id="kazakhNote"></div></div>
+      <div class="tip" id="tip"></div><div class="footer" id="explain"></div>
     </div>
     <script>
     (()=>{
-      const links=__LINKS__, data=__NODES__, t=__STRINGS__, shell=document.getElementById('shell'), svg=document.getElementById('network'), world=document.getElementById('world'), tip=document.getElementById('tip');
+      const kazakhMode=__KAZAKH_MODE__, kazakh=__KAZAKH_INFO__, links=__LINKS__, data=__NODES__, t=__STRINGS__, shell=document.getElementById('shell'), svg=document.getElementById('network'), world=document.getElementById('world'), tip=document.getElementById('tip');
       const escape=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
       const set=(id,v)=>document.getElementById(id).textContent=v;
       set('dpiLabel',t.dpi);set('platformLabel',t.platforms);set('idaeLabel',t.idae);set('linksLabel',t.links);set('linksSub',t.links_sub);set('explain',t.explain);
       set('populationLabel',t.population);set('populationSub',t.population_sub);
        [['linkPopulation','population'],['linkDpi','dpi'],['linkPlatforms','platforms'],['linkIdae','idae'],['linkConnections','connections']].forEach(([id,key])=>document.getElementById(id).href=links[key]);
        set('nCount',__COUNT__);set('nGroups',__GROUPS__);set('pValue',__TOP_PLATFORM__);set('pSub',__TOP_PCT__+' · ↗');set('idaeSub',t.idae_sub);
+      if(kazakhMode){
+        shell.classList.add('kazakh-mode');
+        set('kazakhName',kazakh.name);set('kazakhLabel',kazakh.label);
+        set('kazakhPeople',kazakh.people);set('kazakhSource',kazakh.source);set('kazakhNote',kazakh.note);
+        set('explain',kazakh.note);
+      }
       const NS='http://www.w3.org/2000/svg';const make=(name,attrs)=>{const e=document.createElementNS(NS,name);Object.entries(attrs).forEach(([k,v])=>e.setAttribute(k,v));return e};
+      if(kazakhMode){
+        // Turquoise glow is a decorative full-field reference, not synthetic data nodes.
+        const defs=svg.querySelector('defs');
+        const grad=make('radialGradient',{id:'kazakhTurquoiseGlow',cx:'50%',cy:'50%',r:'70%'});
+        [['0%','#28fff1','.46'],['55%','#0bc1c9','.25'],['100%','#071426','.04']].forEach(([offset,color,opacity])=>grad.appendChild(make('stop',{offset,'stop-color':color,'stop-opacity':opacity})));
+        defs.appendChild(grad);
+        world.appendChild(make('rect',{x:0,y:0,width:1000,height:570,fill:'url(#kazakhTurquoiseGlow)'}));
+        for(let i=0;i<110;i++){
+          const x=(i*179.39)%1000,y=(i*83.71)%570;
+          world.appendChild(make('circle',{cx:x,cy:y,r:2+(i%4),fill:'#36f8ef',opacity:.12+(i%5)*.055}));
+        }
+      }
       // Faint decorative ambient points only; no resource-to-resource connections asserted.
       for(let i=0;i<85;i++){const x=(i*177.7)%1000,y=(i*97.31)%570;world.appendChild(make('circle',{cx:x,cy:y,r:'.9',fill:'#70a8c6',opacity:'.20'}))}
       let pinned=false;
@@ -660,7 +706,9 @@ if mode == 'Публичная карта':
       svg.addEventListener('pointerup',()=>drag=null);svg.addEventListener('pointercancel',()=>drag=null);
     })();
     </script>'''
-    panel_html = (panel_html.replace('__LINKS__',links_json).replace('__NODES__',data_json).replace('__STRINGS__',strings_json)
+    panel_html = (panel_html.replace('__KAZAKH_MODE__',json.dumps(kazakh_reference_mode))
+       .replace('__KAZAKH_INFO__',reference_json)
+       .replace('__LINKS__',links_json).replace('__NODES__',data_json).replace('__STRINGS__',strings_json)
        .replace('__COUNT__',json.dumps(str(len(resources))))
        .replace('__GROUPS__',json.dumps(str(resources['ethnic_group'].nunique())+' '+L['groups'].lower()))
        .replace('__TOP_PLATFORM__',json.dumps(top_platform,ensure_ascii=False))
@@ -682,10 +730,11 @@ if mode == 'Публичная карта':
         with _c:
             st.link_button(_label + ' ↗', links_json and app_base_url + '?derk_view=analytics&derk_section=' + _section, use_container_width=True)
 
-    st.subheader(L['resources'])
-    st.caption(L['listnote'])
-    if resources.empty: st.info(L['empty'])
-    for _,item in resources.iterrows():
+    if not kazakh_reference_mode:
+        st.subheader(L['resources'])
+        st.caption(L['listnote'])
+        if resources.empty: st.info(L['empty'])
+    for _,item in (resources.iloc[0:0] if kazakh_reference_mode else resources).iterrows():
         group=html.escape(str(item['ethnic_group']));name=html.escape(str(item['community_name']) or str(item['public_url']))
         platform_name=html.escape(str(item['platform']));language=html.escape(str(item['language']))
         color=colors.get(str(item['ethnic_group']),'#36D9F5')
