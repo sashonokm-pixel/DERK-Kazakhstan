@@ -1,4 +1,9 @@
 import io
+import html
+import hashlib
+import math
+from urllib.parse import urlsplit, urlunsplit
+import streamlit.components.v1 as components
 import uuid
 from datetime import date
 import os
@@ -283,70 +288,140 @@ if mode == 'Аналитика':
     )
     st.stop()
 
-left, middle, right = st.columns(3)
-with left:
-    ethnic = st.selectbox('Этнос', ['Все'] + sorted(x for x in source['ethnic_group'].dropna().unique() if str(x).strip()))
-with middle:
-    platform = st.selectbox('Платформа', ['Все'] + sorted(x for x in source['platform'].dropna().unique() if str(x).strip()))
-with right:
-    region = st.selectbox('Регион', ['Все'] + sorted(x for x in REGIONS['region'].unique()))
+# DERK 2.0 — two public filters, abstract digital network inside Kazakhstan silhouette.
+# Nodes denote verified unique URLs; faint lines are visual grouping only, NOT measured cross-platform ties.
+st.markdown("""<style>
+.derk-title {font-size:clamp(1.65rem,4vw,2.7rem);font-weight:800;letter-spacing:-.035em}
+.derk-muted {color:#718096;font-size:.91rem}
+.derk-card {border:1px solid rgba(80,150,200,.25);border-radius:16px;padding:15px;margin:8px 0;background:rgba(85,140,200,.055)}
+.derk-name {font-weight:750;font-size:1.03rem;overflow-wrap:anywhere}
+.derk-meta {font-size:.86rem;color:#8493a7;margin-top:5px}
+@media(max-width:650px){.block-container{padding-left:1rem;padding-right:1rem}.derk-card{padding:12px}}
+</style>""", unsafe_allow_html=True)
+
+# Public map contains verified records only. Research cabinet retains its existing workflow.
+if mode == 'Публичная карта':
+    st.markdown('<div class="derk-title">Цифровая экосистема Казахстана</div>', unsafe_allow_html=True)
+    st.caption('Контур страны — визуальная рамка цифрового пространства, а не карта распределения населения или ресурсов по территории.')
+
+filter_cols = st.columns(2)
+with filter_cols[0]:
+    ethnic = st.selectbox('Этнос', ['Все'] + sorted(x for x in source['ethnic_group'].dropna().astype(str).unique() if x.strip()))
+with filter_cols[1]:
+    platform = st.selectbox('Платформа', ['Все'] + sorted(x for x in source['platform'].dropna().astype(str).unique() if x.strip()))
+
 filtered = source.copy()
-if ethnic != 'Все': filtered = filtered[filtered['ethnic_group'] == ethnic]
-if platform != 'Все': filtered = filtered[filtered['platform'] == platform]
-if region != 'Все': filtered = filtered[filtered['region'] == region]
+if ethnic != 'Все':
+    filtered = filtered[filtered['ethnic_group'].astype(str) == ethnic]
+if platform != 'Все':
+    filtered = filtered[filtered['platform'].astype(str) == platform]
 
-counts = filtered.groupby('region').size().rename('observations').reset_index()
-map_data = REGIONS.merge(counts, on='region', how='left')
-map_data['observations'] = map_data['observations'].fillna(0).astype(int)
-map_data['marker_size'] = map_data['observations'].clip(lower=1)
-fig = px.scatter_map(map_data, lat='lat', lon='lon', size='marker_size', color='observations',
-                     hover_name='region', hover_data={'lat':False,'lon':False,'marker_size':False,'observations':True},
-                     color_continuous_scale='Blues', zoom=3.6, center={'lat':48.1,'lon':67.5},
-                     map_style='open-street-map', height=520, size_max=34)
-fig.update_layout(margin=dict(l=0,r=0,t=0,b=0), coloraxis_colorbar_title='Записей')
-st.plotly_chart(fig, use_container_width=True)
-st.subheader("Индекс цифрового присутствия (DPI)")
+def canonical_url(value):
+    raw = str(value).strip()
+    try:
+        parts = urlsplit(raw)
+        if parts.scheme.lower() not in ('https', 'http') or not parts.netloc:
+            return ''
+        host = parts.netloc.lower()
+        path = parts.path.rstrip('/') or '/'
+        return urlunsplit((parts.scheme.lower(), host, path, parts.query, ''))
+    except ValueError:
+        return ''
 
-dpi_data = (
-        filtered[
-            filtered["ethnic_group"].astype(str).str.strip().ne("")
-            & filtered["public_url"].astype(str).str.strip().ne("")
-        ]
-        .groupby("ethnic_group")["public_url"]
-        .nunique()
-        .reset_index(name="dpi")
-    )
+resources = filtered.copy()
+resources['_url_key'] = resources['public_url'].apply(canonical_url)
+resources = resources[resources['_url_key'].ne('')].drop_duplicates(subset=['ethnic_group', '_url_key'])
+resources = resources.sort_values(['ethnic_group', 'platform', 'community_name'], kind='stable')
 
-if not dpi_data.empty:
-        fig_dpi = px.pie(
-            dpi_data,
-            names="ethnic_group",
-            values="dpi",
-            hole=0.55,
-            title="Цифровое присутствие этносов"
-        )
-        st.plotly_chart(fig_dpi, use_container_width=True)
+# Stable color per ethnic group: the same group has the same color across filter changes.
+PALETTE = ['#36D9F5','#A78BFA','#FB7185','#FBBF24','#34D399','#F472B6','#60A5FA','#F97316','#C4B5FD','#2DD4BF','#E879F9','#A3E635']
+all_groups = sorted(source['ethnic_group'].dropna().astype(str).loc[lambda x:x.str.strip().ne('')].unique())
+GROUP_COLORS = {g: PALETTE[i % len(PALETTE)] for i, g in enumerate(all_groups)}
+
+# DPI counts distinct verified URLs per ethnic group; avoid counting multiple observation rows as multiple resources.
+if mode == 'Публичная карта':
+    all_verified = source.copy()
+    all_verified['_url_key'] = all_verified['public_url'].apply(canonical_url)
+    all_verified = all_verified[all_verified['_url_key'].ne('')].drop_duplicates(['ethnic_group', '_url_key'])
+    total_unique = len(all_verified)
+    group_unique = len(all_verified[all_verified['ethnic_group'] == ethnic]) if ethnic != 'Все' else 0
+    share = 100 * group_unique / total_unique if total_unique else 0
+    m1, m2, m3 = st.columns(3)
+    m1.metric('Ресурсов по фильтрам', len(resources))
+    m2.metric('Представленных этносов', resources['ethnic_group'].nunique())
+    m3.metric('Доля этноса в базе', f'{share:.1f}%' if ethnic != 'Все' else '—', help='Доля уникальных подтверждённых URL выбранного этноса среди всех подтверждённых URL базы; фильтр платформы на знаменатель не влияет.')
+
+# Stylized silhouette is a deliberate non-geographic design element; not an official boundary.
+SILHOUETTE = [(22,123),(58,111),(87,77),(126,69),(151,49),(196,61),(224,43),(254,64),(289,57),(319,77),(367,67),(397,84),(443,86),(462,111),(430,129),(437,158),(406,178),(378,209),(340,212),(309,231),(267,218),(226,241),(185,211),(149,207),(117,183),(72,185),(60,155),(22,149)]
+
+def inside_poly(x, y, pts):
+    inside = False
+    j = len(pts) - 1
+    for i in range(len(pts)):
+        xi, yi = pts[i]; xj, yj = pts[j]
+        if (yi > y) != (yj > y) and x < (xj-xi)*(y-yi)/(yj-yi+1e-12)+xi:
+            inside = not inside
+        j = i
+    return inside
+
+outline = ' '.join(f'{x},{y}' for x,y in SILHOUETTE)
+node_svg = []
+points = []
+for _, item in resources.iterrows():
+    url = str(item['public_url']).strip()
+    key = str(item['_url_key'])
+    group = str(item['ethnic_group'])
+    color = GROUP_COLORS.get(group, '#36D9F5')
+    # Hash placement keeps resource nodes stable as users switch filters.
+    digest = hashlib.sha256((group+'|'+key).encode('utf-8')).digest()
+    x = y = 0
+    for attempt in range(80):
+        hx = hashlib.sha256(digest + bytes([attempt]) + b'x').digest()
+        hy = hashlib.sha256(digest + bytes([attempt]) + b'y').digest()
+        xx = 34 + int.from_bytes(hx[:4], 'big') / 2**32 * 412
+        yy = 55 + int.from_bytes(hy[:4], 'big') / 2**32 * 173
+        if inside_poly(xx, yy, SILHOUETTE):
+            x, y = xx, yy
+            break
+    if not x:
+        x, y = 240, 135
+    points.append((x, y, color, url, str(item['community_name']), group))
+
+# Thin background strokes are decorative, not evidence of observed informational interactions.
+for idx, (x,y,color,url,name,group) in enumerate(points):
+    if idx % 3 == 0:
+        node_svg.append(f'<path d="M {x:.1f},{y:.1f} Q 240,130 240,130" stroke="{color}" stroke-opacity=".13" fill="none" stroke-width=".7"/>')
+for x,y,color,url,name,group in points:
+    title = html.escape(f'{name} · {group}', quote=True)
+    safe_url = html.escape(url, quote=True)
+    node_svg.append(f'<a href="{safe_url}" target="_blank" rel="noopener noreferrer"><title>{title} — открыть ресурс</title><circle cx="{x:.1f}" cy="{y:.1f}" r="9" fill="{color}" fill-opacity=".12"/><circle cx="{x:.1f}" cy="{y:.1f}" r="4.2" fill="{color}" stroke="#07182D" stroke-width="1"/></a>')
+
+svg_html = f"""<div style="background:linear-gradient(135deg,#07152B,#112E4B);border:1px solid #244968;border-radius:20px;padding:12px;overflow:hidden;color:white;font-family:system-ui">
+<div style="display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap;padding:5px 9px"><strong>DERK · DIGITAL NETWORK</strong><span style="font-size:12px;color:#9FC9DB">Нажмите на узел для перехода ↗</span></div>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 485 280" style="width:100%;height:auto" role="img" aria-label="Схематический контур Казахстана с цифровыми ресурсами">
+<polygon points="{outline}" fill="#123653" stroke="#4EE0F5" stroke-width="2.4" stroke-linejoin="round"/>
+{''.join(node_svg)}
+</svg>
+<div style="padding:0 9px 9px;font-size:11px;color:#8FAEBF">Узлы — уникальные ссылки; расположение условное, линии декоративные. Это не географическая карта и не доказательство информационных связей.</div></div>"""
+components.html(svg_html, height=350, scrolling=False)
+
+st.subheader('Цифровые ресурсы')
+if resources.empty:
+    st.info('Для выбранных фильтров пока нет ресурсов с корректными ссылками.')
 else:
-        st.info("Пока нет данных для расчёта DPI.")
-a,b,c = st.columns(3)
-a.metric('Записей по фильтрам', len(filtered))
-b.metric('Представленных этносов', filtered['ethnic_group'].replace('',pd.NA).nunique())
-c.metric('Регионов с наблюдениями', filtered['region'].replace('',pd.NA).nunique())
-if filtered.empty:
-    st.warning('Пока нет записей по выбранным фильтрам. Загрузите подтверждённые наблюдения в исследовательском кабинете.')
-else:
-    show = ['ethnic_group','region','platform','community_name','public_url','language','observed_at','source_url','verification_status']
-    st.dataframe(
-    filtered[show],
-    hide_index=True,
-    use_container_width=True,
-    column_config={
-        "public_url": st.column_config.LinkColumn(
-            "Ссылка на ресурс",
-            display_text="Открыть ↗️"
-        )
-    }
-)
+    st.caption('Все найденные ресурсы показаны ниже. Нажмите «Открыть ресурс» для перехода на исходную площадку.')
+    for _, item in resources.iterrows():
+        group = html.escape(str(item['ethnic_group']))
+        name = html.escape(str(item['community_name']) or 'Без названия')
+        platform_label = html.escape(str(item['platform']))
+        language_label = html.escape(str(item['language']))
+        color = GROUP_COLORS.get(str(item['ethnic_group']), '#36D9F5')
+        st.markdown(f'<div class="derk-card" style="border-left:4px solid {color}"><div class="derk-name">{name}</div><div class="derk-meta">{group} · {platform_label}' + (f' · {language_label}' if language_label else '') + '</div></div>', unsafe_allow_html=True)
+        st.link_button('Открыть ресурс ↗', str(item['public_url']), use_container_width=True)
+
+# Existing DPI and research editing functionality remain available.
+if mode == 'Исследовательский кабинет':
+    st.caption('В исследовательском кабинете отображаются также записи со статусами pending и rejected. Публичная карта показывает только verified.')
 if mode == 'Исследовательский кабинет':
     st.divider()
     st.subheader('Добавить наблюдение вручную')
@@ -378,6 +453,8 @@ if mode == 'Исследовательский кабинет':
             record = dict(zip(COLS, [str(uuid.uuid4()), group.strip(), area, site, community.strip(), url.strip(), lang.strip(), topic.strip(), int(followers), observed.isoformat(), evidence.strip(), status, note.strip()]))
             supabase.table("observations").insert(record).execute()
             st.success("Наблюдение сохранено в базе данных DERK Kazakhstan.")
+            load_data.clear()
+            st.session_state.pop("working_data", None)
             st.rerun()
     st.subheader('Редактирование и удаление записей')
     if not data.empty:
@@ -390,7 +467,9 @@ if mode == 'Исследовательский кабинет':
             else:
                 for _, row in edited.iterrows():
                     supabase.table("observations").update(row.drop("record_id").to_dict()).eq("record_id", row["record_id"]).execute()
-                st.success('Изменения применены в текущей сессии. Не забудьте экспортировать CSV.')
+                st.success('Изменения сохранены в Supabase.')
+                load_data.clear()
+                st.session_state.pop('working_data', None)
                 st.rerun()
     st.subheader('Импорт и проверка данных')
     st.write('Загрузите CSV с колонками шаблона. Файл действует в текущей сессии и **не записывается на сервер**.')
