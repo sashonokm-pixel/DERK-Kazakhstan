@@ -81,7 +81,7 @@ with lang_cols[1]:
     st.selectbox('Language / Тіл / Язык', ['en','kk','ru'], format_func=lambda v: {'ru':'РУС','kk':'ҚАЗ','en':'ENG'}[v], key='derk_language')
 L = LANGS[st.session_state.derk_language]
 
-# Quiet ambient synthesizer. The browser may block audible autoplay; user can enable it.
+# Rhythmic electronic synthesizer. The browser may block audible autoplay; user can enable it.
 # Kept outside the map so the control also appears on Analytics and Research pages.
 import json as _derk_json
 _ambient_labels = {
@@ -96,31 +96,78 @@ button:hover{border-color:#6fe8fa}small{color:#94b6cc;margin-left:8px;font-size:
 <body><button id="ambientToggle" type="button" aria-pressed="false"></button><small id="ambientStatus"></small>
 <script>(()=>{
 const labels=__LABELS__,button=document.getElementById('ambientToggle'),status=document.getElementById('ambientStatus');
-let desired=true,ctx=null,master=null,oscillators=[],pulse=null;
+let desired=true,ctx=null,master=null,delay=null,feedback=null,filter=null;
+let timer=null,nextNote=0,step=0;
 try{const saved=localStorage.getItem('derk_ambient_enabled');if(saved==='false')desired=false}catch(e){}
 const Audio=window.AudioContext||window.webkitAudioContext;
+const BPM=106,STEP=60/BPM/2;
+// A melodic electronic score: minor-key arpeggios, warm bass and restrained synth percussion.
+// All sounds are generated locally in Web Audio; no external audio files or downloads.
+const arp=[0,7,12,15,12,7,3,7,0,7,10,15,19,15,10,7,3,10,15,19,15,10,7,10,0,7,12,19,15,12,7,3];
+const bass=[0,0,3,3,8,8,7,7];
+const hz=n=>440*Math.pow(2,(n-69)/12);
 function paint(){button.textContent=desired?labels[0]:labels[1];button.setAttribute('aria-pressed',String(desired))}
 function makeAudio(){
  if(!Audio)return false;
  if(ctx)return true;
- ctx=new Audio();master=ctx.createGain();master.gain.value=0;master.connect(ctx.destination);
- const tones=[[110,'sine',0.012],[164.81,'sine',0.008],[220,'triangle',0.003],[329.63,'sine',0.002]];
- tones.forEach(([freq,type,level],i)=>{
-   const o=ctx.createOscillator(),g=ctx.createGain();o.type=type;o.frequency.value=freq;
-   const l=ctx.createOscillator(),lg=ctx.createGain();l.type='sine';l.frequency.value=.045+i*.013;lg.gain.value=level*.35;
-   l.connect(lg);lg.connect(g.gain);g.gain.value=level;
-   o.connect(g);g.connect(master);o.start();l.start();oscillators.push(o,l);
- });
+ ctx=new Audio();
+ master=ctx.createGain();master.gain.value=0;
+ const compressor=ctx.createDynamicsCompressor();compressor.threshold.value=-25;compressor.ratio.value=3;
+ filter=ctx.createBiquadFilter();filter.type='lowpass';filter.frequency.value=2300;
+ master.connect(filter);filter.connect(compressor);compressor.connect(ctx.destination);
+ delay=ctx.createDelay(1);delay.delayTime.value=STEP*1.5;
+ feedback=ctx.createGain();feedback.gain.value=.22;
+ const wet=ctx.createGain();wet.gain.value=.18;
+ master.connect(delay);delay.connect(feedback);feedback.connect(delay);delay.connect(wet);wet.connect(compressor);
  return true;
+}
+function tone(midi,when,duration,kind='arp',velocity=1){
+ const osc=ctx.createOscillator(),gain=ctx.createGain();
+ const f=hz(midi);
+ osc.type=kind==='bass'?'sawtooth':kind==='pad'?'triangle':'square';
+ osc.frequency.setValueAtTime(f,when);
+ const peak=(kind==='bass'?.09:kind==='pad'?.018:.023)*velocity;
+ const attack=kind==='pad'?.45:.012;
+ gain.gain.setValueAtTime(.0001,when);
+ gain.gain.exponentialRampToValueAtTime(peak,when+attack);
+ gain.gain.exponentialRampToValueAtTime(.0001,when+duration);
+ if(kind==='bass'){
+  const lp=ctx.createBiquadFilter();lp.type='lowpass';lp.frequency.value=340;osc.connect(lp);lp.connect(gain);
+ }else{osc.connect(gain)}
+ gain.connect(master);osc.start(when);osc.stop(when+duration+.04);
+}
+function kick(when){
+ const o=ctx.createOscillator(),g=ctx.createGain();o.type='sine';
+ o.frequency.setValueAtTime(120,when);o.frequency.exponentialRampToValueAtTime(45,when+.15);
+ g.gain.setValueAtTime(.075,when);g.gain.exponentialRampToValueAtTime(.0001,when+.2);
+ o.connect(g);g.connect(master);o.start(when);o.stop(when+.21);
+}
+function tick(when){
+ const o=ctx.createOscillator(),g=ctx.createGain(),hp=ctx.createBiquadFilter();
+ o.type='triangle';o.frequency.value=3800;hp.type='highpass';hp.frequency.value=2400;
+ g.gain.setValueAtTime(.0001,when);g.gain.linearRampToValueAtTime(.007,when+.003);g.gain.exponentialRampToValueAtTime(.0001,when+.045);
+ o.connect(hp);hp.connect(g);g.connect(master);o.start(when);o.stop(when+.05);
+}
+function schedule(){
+ if(!ctx||!desired||ctx.state!=='running')return;
+ while(nextNote<ctx.currentTime+.22){
+  const pos=step%32,bar=Math.floor(step/8)%8;
+  tone(60+arp[pos],nextNote,STEP*.82,'arp',pos%4===0?1:.66);
+  if(pos%2===0)tick(nextNote);
+  if(pos%4===0){tone(36+bass[Math.floor(step/8)%8],nextNote,STEP*3.8,'bass');kick(nextNote)}
+  if(pos===0){const root=48+bass[Math.floor(step/8)%8];[0,3,7,12].forEach(n=>tone(root+n,nextNote,STEP*7.6,'pad',.8))}
+  nextNote+=STEP;step++;
+ }
 }
 async function start(){if(!desired||!makeAudio())return;try{
  await ctx.resume();master.gain.cancelScheduledValues(ctx.currentTime);
- master.gain.setTargetAtTime(1,ctx.currentTime,1.5);status.textContent='';
+ master.gain.setTargetAtTime(.48,ctx.currentTime,.65);
+ if(!timer){nextNote=ctx.currentTime+.06;timer=setInterval(schedule,60);schedule()}
+ status.textContent='';
  }catch(e){status.textContent=labels[2]}}
-function stop(){if(ctx&&master){master.gain.cancelScheduledValues(ctx.currentTime);master.gain.setTargetAtTime(0,ctx.currentTime,.35)}}
+function stop(){if(ctx&&master){master.gain.cancelScheduledValues(ctx.currentTime);master.gain.setTargetAtTime(0,ctx.currentTime,.15)}if(timer){clearInterval(timer);timer=null}}
 button.addEventListener('click',()=>{desired=!desired;try{localStorage.setItem('derk_ambient_enabled',String(desired))}catch(e){}paint();if(desired)start();else{stop();status.textContent=''}});
 paint();if(desired){start();
- // Browsers can require a gesture. Try first interaction on the main page if accessible.
  try{window.parent.document.addEventListener('pointerdown',()=>{if(desired)start()},{once:true,capture:true})}catch(e){}
 }
 window.addEventListener('pagehide',()=>{stop();if(ctx)ctx.close().catch(()=>{})});
@@ -129,7 +176,7 @@ _ambient_html = _ambient_html.replace('__LABELS__',_derk_json.dumps(_ambient_lab
 components.html(_ambient_html, height=53, scrolling=False)
 
 st.title('Digital Ethnic Representation of Kazakhstan')
-st.caption('DERK 3.4 · ' + L['subtitle'])
+st.caption('DERK 3.5 · ' + L['subtitle'])
 # The public view is a conceptual network, not a geographic population map.
 requested_view = str(st.query_params.get('derk_view', ''))
 nav_options = ['Публичная карта', 'Аналитика', 'Исследовательский кабинет']
