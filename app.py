@@ -27,10 +27,58 @@ def load_data():
     response = supabase.table("observations").select("*").execute()
     return pd.DataFrame(response.data, columns=COLS).fillna("")
 
+# DERK 2.2 visual theme — UI only; data, analytics, and Supabase remain unchanged.
+st.markdown(r"""<style>
+:root {color-scheme:dark;}
+html, body, [data-testid="stApp"], .stApp, [data-testid="stAppViewContainer"], [data-testid="stMain"] {background:#071426 !important;color:#e9f3ff !important;}
+[data-testid="stHeader"] {background:rgba(7,20,38,.92) !important;}
+[data-testid="stSidebar"], [data-testid="stSidebar"] > div {background:#0d2039 !important;color:#e9f3ff !important;}
+[data-testid="stSidebar"] * {color:#dcecff;}
+[data-testid="stSidebarNav"] {background:transparent !important;}
+.block-container {max-width:1440px;padding-top:2.2rem;padding-bottom:3rem;}
+h1,h2,h3,h4,p,li,label,[data-testid="stMarkdownContainer"] {color:#e9f3ff;}
+h1 {font-size:clamp(1.8rem,4vw,2.8rem)!important;letter-spacing:-.035em;color:#f5fbff!important;}
+h2,h3 {color:#eff8ff!important;}
+[data-testid="stCaptionContainer"], [data-testid="stCaptionContainer"] * {color:#9fb6d1!important;}
+[data-testid="stMetric"] {background:linear-gradient(145deg,#112944,#0d2139);border:1px solid #24445f;border-radius:16px;padding:14px 18px;min-height:100px;}
+[data-testid="stMetricLabel"] * {color:#a9c3db!important;}
+[data-testid="stMetricValue"] * {color:#f2fbff!important;}
+[data-testid="stSelectbox"] [data-baseweb="select"] > div,
+[data-testid="stTextInput"] input, [data-testid="stNumberInput"] input,
+[data-testid="stDateInput"] input, [data-testid="stTextArea"] textarea,
+[data-testid="stFileUploader"] section {background:#122a47!important;color:#f1f8ff!important;border-color:#345674!important;border-radius:12px!important;}
+[data-baseweb="popover"] [role="listbox"], [data-baseweb="menu"], [data-baseweb="popover"] {background:#132b48!important;color:#fff!important;}
+[role="option"] {background:#132b48!important;color:#fff!important;}
+[role="option"]:hover {background:#245177!important;}
+[data-testid="stSelectbox"] svg {fill:#9cdff1!important;}
+.stButton > button, .stDownloadButton > button, [data-testid="stFormSubmitButton"] button {background:#173e60!important;border:1px solid #32799b!important;color:#effcff!important;border-radius:12px!important;}
+.stButton > button:hover, .stDownloadButton > button:hover {background:#205b7c!important;border-color:#5bdaf0!important;}
+[data-testid="stAlert"] {background:#102c47!important;border:1px solid #285676!important;color:#d9f0ff!important;border-radius:12px!important;}
+[data-testid="stDataFrame"], [data-testid="stDataEditor"], [data-testid="stForm"] {background:#0e233b!important;border-radius:14px;border:1px solid #28435d;}
+hr {border-color:#25435e!important;}
+.derk-title {color:#f5fbff!important;}
+.derk-card {background:linear-gradient(115deg,#122b47,#0c213a)!important;border:1px solid #2a4b67!important;box-shadow:0 8px 24px #020b1940;}
+.derk-name {color:#f6fbff!important;}
+.derk-meta {color:#a6c0db!important;}
+[data-testid="stRadio"] label, [data-testid="stSelectbox"] label {color:#c8ddf0!important;}
+@media(max-width:700px){.block-container{padding:1.15rem .85rem 2rem!important;}[data-testid="stMetric"]{padding:10px 12px;min-height:90px;}[data-testid="stMetricValue"]{font-size:1.5rem!important;}h1{font-size:1.75rem!important;}}
+</style>""", unsafe_allow_html=True)
+
+LANGS = {
+ 'ru': {'subtitle':'Карта цифровой этнической репрезентации Казахстана','map':'Публичная карта','analytics':'Аналитика','cabinet':'Исследовательский кабинет','ethnic':'Этнос','platform':'Платформа','all':'Все','resources':'Цифровые ресурсы','filtered':'Ресурсов по фильтрам','groups':'Представленных этносов','share':'Доля этноса в базе','open':'Открыть ресурс ↗','empty':'По выбранным фильтрам нет подтверждённых ресурсов с корректными ссылками.','tip':'Наведите на узел или нажмите для просмотра ресурса','explain':'Узлы представляют уникальные подтверждённые ссылки. Положение условное; линии фона декоративные и не доказывают информационные связи.','listnote':'Список подтверждённых цифровых ресурсов по выбранным фильтрам','nodes':'ЦИФРОВАЯ НЕЙРОННАЯ КАРТА','dpi':'Цифровое присутствие','platforms':'Платформы','idae':'Индекс ИДАЭ','links':'Подтверждённые связи','links_empty':'Нет проверенных данных о связях','mode':'Разделы DERK'},
+ 'kk': {'subtitle':'Қазақстан этностарының цифрлық репрезентация картасы','map':'Қоғамдық карта','analytics':'Аналитика','cabinet':'Зерттеу кабинеті','ethnic':'Этнос','platform':'Платформа','all':'Барлығы','resources':'Цифрлық ресурстар','filtered':'Сүзгі бойынша ресурстар','groups':'Қамтылған этностар','share':'Дерекқордағы этнос үлесі','open':'Ресурсты ашу ↗','empty':'Таңдалған сүзгілер бойынша расталған ресурстар табылмады.','tip':'Ресурсты көру үшін түйінді таңдаңыз','explain':'Түйіндер — бірегей расталған сілтемелер. Орналасуы шартты, фондық сызықтар ақпараттық байланысты дәлелдемейді.','listnote':'Таңдалған сүзгілер бойынша расталған цифрлық ресурстар','nodes':'ЦИФРЛЫҚ НЕЙРОНДЫҚ КАРТА','dpi':'Цифрлық қатысу','platforms':'Платформалар','idae':'ИДАЭ индексі','links':'Расталған байланыстар','links_empty':'Расталған байланыс деректері жоқ','mode':'DERK бөлімдері'},
+ 'en': {'subtitle':'Digital Ethnic Representation of Kazakhstan','map':'Public map','analytics':'Analytics','cabinet':'Research workspace','ethnic':'Ethnic group','platform':'Platform','all':'All','resources':'Digital resources','filtered':'Filtered resources','groups':'Ethnic groups','share':'Ethnic share in dataset','open':'Open resource ↗','empty':'No verified resources with valid links match these filters.','tip':'Hover over or select a node to view its resource','explain':'Nodes are unique verified links. Positions are conceptual; background lines do not establish information relationships.','listnote':'Verified digital resources matching the selected filters','nodes':'DIGITAL NEURAL MAP','dpi':'Digital presence','platforms':'Platforms','idae':'IDAE index','links':'Verified connections','links_empty':'No verified connection data','mode':'DERK sections'}
+}
+st.session_state.setdefault('derk_language','ru')
+lang_cols = st.columns([6, 1.5])
+with lang_cols[1]:
+    st.selectbox('Language / Тіл / Язык', ['ru','kk','en'], format_func=lambda v: {'ru':'РУС','kk':'ҚАЗ','en':'ENG'}[v], key='derk_language')
+L = LANGS[st.session_state.derk_language]
+
 st.title('Digital Ethnic Representation of Kazakhstan')
-st.caption('DERK · Карта цифровой этнической репрезентации Казахстана · исследовательский прототип v0.1')
-st.info('Карта показывает **наблюдения об открытых цифровых ресурсах**, а не этнический состав населения. Пустые регионы означают отсутствие записей в базе, а не отсутствие цифровой репрезентации.')
-mode = st.sidebar.radio('Разделы DERK', ['Публичная карта', 'Аналитика', 'Исследовательский кабинет'])
+st.caption('DERK 3.0 · ' + L['subtitle'])
+# The public view is a conceptual network, not a geographic population map.
+mode = st.sidebar.radio(L['mode'], ['Публичная карта', 'Аналитика', 'Исследовательский кабинет'], format_func=lambda v: { 'Публичная карта':L['map'], 'Аналитика':L['analytics'], 'Исследовательский кабинет':L['cabinet']}[v])
 data = load_data()
 if 'working_data' not in st.session_state:
     st.session_state.working_data = data.copy()
@@ -38,16 +86,16 @@ data = st.session_state.working_data.copy()
 verified = data[data['verification_status'].astype(str).str.lower().eq('verified')].copy()
 
 if mode == 'Публичная карта':
-    st.subheader('Публичная интерактивная карта')
+    st.subheader(L['nodes'])
     source = verified
 elif mode == 'Исследовательский кабинет':
-    st.subheader('Исследовательский кабинет')
+    st.subheader(L['cabinet'])
     st.caption('Предварительные записи доступны только в исследовательском режиме; публичная карта показывает только verified.')
     source = data
 
 
 if mode == 'Аналитика':
-    st.header('📊 Аналитика DERK')
+    st.header('📊 ' + L['analytics'] + ' DERK')
     st.subheader('Этнический состав населения Казахстана — 2026')
 
     total_population = 20499822
@@ -292,165 +340,137 @@ if mode == 'Аналитика':
 # Nodes denote verified unique URLs; faint lines are visual grouping only, NOT measured cross-platform ties.
 st.markdown("""<style>
 .derk-title {font-size:clamp(1.65rem,4vw,2.7rem);font-weight:800;letter-spacing:-.035em}
-.derk-muted {color:#718096;font-size:.91rem}
+.derk-muted {color:#a5bcd7;font-size:.91rem}
 .derk-card {border:1px solid rgba(80,150,200,.25);border-radius:16px;padding:15px;margin:8px 0;background:rgba(85,140,200,.055)}
 .derk-name {font-weight:750;font-size:1.03rem;overflow-wrap:anywhere}
 .derk-meta {font-size:.86rem;color:#8493a7;margin-top:5px}
 @media(max-width:650px){.block-container{padding-left:1rem;padding-right:1rem}.derk-card{padding:12px}}
 </style>""", unsafe_allow_html=True)
 
-# Public map contains verified records only. Research cabinet retains its existing workflow.
+# Public map: only verified resources; two filters; research cabinet remains untouched.
 if mode == 'Публичная карта':
-    st.markdown('<div class="derk-title">Цифровая экосистема Казахстана</div>', unsafe_allow_html=True)
-    st.caption('Контур страны — визуальная рамка цифрового пространства, а не карта распределения населения или ресурсов по территории.')
+    source = verified
+    filters = st.columns(2)
+    with filters[0]:
+        ethnic_options = ['__all__'] + sorted(x for x in source['ethnic_group'].dropna().astype(str).unique() if x.strip())
+        ethnic = st.selectbox(L['ethnic'], ethnic_options, format_func=lambda x: L['all'] if x == '__all__' else x)
+    with filters[1]:
+        platform_options = ['__all__'] + sorted(x for x in source['platform'].dropna().astype(str).unique() if x.strip())
+        platform = st.selectbox(L['platform'], platform_options, format_func=lambda x: L['all'] if x == '__all__' else x)
+    filtered = source.copy()
+    if ethnic != '__all__': filtered = filtered[filtered['ethnic_group'].astype(str).eq(ethnic)]
+    if platform != '__all__': filtered = filtered[filtered['platform'].astype(str).eq(platform)]
 
-filter_cols = st.columns(2)
-with filter_cols[0]:
-    ethnic = st.selectbox('Этнос', ['Все'] + sorted(x for x in source['ethnic_group'].dropna().astype(str).unique() if x.strip()))
-with filter_cols[1]:
-    platform = st.selectbox('Платформа', ['Все'] + sorted(x for x in source['platform'].dropna().astype(str).unique() if x.strip()))
+    def canonical_url(value):
+        try:
+            u = urlsplit(str(value).strip())
+            if u.scheme.lower() not in ('https','http') or not u.netloc: return ''
+            return urlunsplit((u.scheme.lower(),u.netloc.lower(),u.path.rstrip('/') or '/',u.query,''))
+        except (ValueError, TypeError): return ''
 
-filtered = source.copy()
-if ethnic != 'Все':
-    filtered = filtered[filtered['ethnic_group'].astype(str) == ethnic]
-if platform != 'Все':
-    filtered = filtered[filtered['platform'].astype(str) == platform]
-
-def canonical_url(value):
-    raw = str(value).strip()
-    try:
-        parts = urlsplit(raw)
-        if parts.scheme.lower() not in ('https', 'http') or not parts.netloc:
-            return ''
-        host = parts.netloc.lower()
-        path = parts.path.rstrip('/') or '/'
-        return urlunsplit((parts.scheme.lower(), host, path, parts.query, ''))
-    except ValueError:
-        return ''
-
-resources = filtered.copy()
-resources['_url_key'] = resources['public_url'].apply(canonical_url)
-resources = resources[resources['_url_key'].ne('')].drop_duplicates(subset=['ethnic_group', '_url_key'])
-resources = resources.sort_values(['ethnic_group', 'platform', 'community_name'], kind='stable')
-
-# Stable color per ethnic group: the same group has the same color across filter changes.
-PALETTE = ['#36D9F5','#A78BFA','#FB7185','#FBBF24','#34D399','#F472B6','#60A5FA','#F97316','#C4B5FD','#2DD4BF','#E879F9','#A3E635']
-all_groups = sorted(source['ethnic_group'].dropna().astype(str).loc[lambda x:x.str.strip().ne('')].unique())
-GROUP_COLORS = {g: PALETTE[i % len(PALETTE)] for i, g in enumerate(all_groups)}
-
-# DPI counts distinct verified URLs per ethnic group; avoid counting multiple observation rows as multiple resources.
-if mode == 'Публичная карта':
+    resources = filtered.copy()
+    resources['_url_key'] = resources['public_url'].apply(canonical_url)
+    resources = resources[resources['_url_key'].ne('')].drop_duplicates(['ethnic_group','_url_key'])
+    resources = resources.sort_values(['ethnic_group','platform','community_name'],kind='stable')
     all_verified = source.copy()
     all_verified['_url_key'] = all_verified['public_url'].apply(canonical_url)
-    all_verified = all_verified[all_verified['_url_key'].ne('')].drop_duplicates(['ethnic_group', '_url_key'])
-    total_unique = len(all_verified)
-    group_unique = len(all_verified[all_verified['ethnic_group'] == ethnic]) if ethnic != 'Все' else 0
-    share = 100 * group_unique / total_unique if total_unique else 0
-    m1, m2, m3 = st.columns(3)
-    m1.metric('Ресурсов по фильтрам', len(resources))
-    m2.metric('Представленных этносов', resources['ethnic_group'].nunique())
-    m3.metric('Доля этноса в базе', f'{share:.1f}%' if ethnic != 'Все' else '—', help='Доля уникальных подтверждённых URL выбранного этноса среди всех подтверждённых URL базы; фильтр платформы на знаменатель не влияет.')
+    all_verified = all_verified[all_verified['_url_key'].ne('')].drop_duplicates(['ethnic_group','_url_key'])
+    group_count = len(all_verified[all_verified['ethnic_group'].eq(ethnic)]) if ethnic != '__all__' else 0
+    share = 100 * group_count / len(all_verified) if len(all_verified) else 0
+    PALETTE = ['#39E0F5','#B299FF','#FFB765','#6EE7B7','#FB7185','#60A5FA','#F9A8D4','#FACC15','#2DD4BF']
+    groups = sorted(source['ethnic_group'].dropna().astype(str).loc[lambda x:x.str.strip().ne('')].unique())
+    colors = {g: PALETTE[i % len(PALETTE)] for i,g in enumerate(groups)}
 
-# Stylized silhouette is a deliberate non-geographic design element; not an official boundary.
-SILHOUETTE = [(22,123),(58,111),(87,77),(126,69),(151,49),(196,61),(224,43),(254,64),(289,57),(319,77),(367,67),(397,84),(443,86),(462,111),(430,129),(437,158),(406,178),(378,209),(340,212),(309,231),(267,218),(226,241),(185,211),(149,207),(117,183),(72,185),(60,155),(22,149)]
-
-def inside_poly(x, y, pts):
-    inside = False
-    j = len(pts) - 1
-    for i in range(len(pts)):
-        xi, yi = pts[i]; xj, yj = pts[j]
-        if (yi > y) != (yj > y) and x < (xj-xi)*(y-yi)/(yj-yi+1e-12)+xi:
-            inside = not inside
-        j = i
-    return inside
-
-outline = ' '.join(f'{x},{y}' for x,y in SILHOUETTE)
-node_svg = []
-points = []
-for _, item in resources.iterrows():
-    url = str(item['public_url']).strip()
-    key = str(item['_url_key'])
-    group = str(item['ethnic_group'])
-    color = GROUP_COLORS.get(group, '#36D9F5')
-    # Hash placement keeps resource nodes stable as users switch filters.
-    digest = hashlib.sha256((group+'|'+key).encode('utf-8')).digest()
-    x = y = 0
-    for attempt in range(80):
-        hx = hashlib.sha256(digest + bytes([attempt]) + b'x').digest()
-        hy = hashlib.sha256(digest + bytes([attempt]) + b'y').digest()
-        xx = 34 + int.from_bytes(hx[:4], 'big') / 2**32 * 412
-        yy = 55 + int.from_bytes(hy[:4], 'big') / 2**32 * 173
-        if inside_poly(xx, yy, SILHOUETTE):
-            x, y = xx, yy
-            break
-    if not x:
-        x, y = 240, 135
-    points.append((x, y, color, url, str(item['community_name']), group, str(item['platform']), str(item['language'])))
-
-# Thin background strokes are decorative, not evidence of observed informational interactions.
-for idx, (x,y,color,url,name,group,platform,language) in enumerate(points):
-    if idx % 3 == 0:
-        node_svg.append(f'<path d="M {x:.1f},{y:.1f} Q 240,130 240,130" stroke="{color}" stroke-opacity=".13" fill="none" stroke-width=".7"/>')
-for x,y,color,url,name,group,platform,language in points:
-    attrs = ' '.join(f'data-{k}="{html.escape(str(v), quote=True)}"' for k,v in {'name':name, 'group':group, 'platform':platform, 'language':language, 'url':url}.items())
-    node_svg.append(f'<g class="derk-node" tabindex="0" role="button" aria-label="{html.escape(name, quote=True)}" {attrs} style="cursor:pointer"><circle cx="{x:.1f}" cy="{y:.1f}" r="12" fill="{color}" fill-opacity=".12"/><circle cx="{x:.1f}" cy="{y:.1f}" r="5" fill="{color}" stroke="#07182D" stroke-width="1"/></g>')
-
-svg_html = f"""<div id="derk-map" style="position:relative;background:linear-gradient(135deg,#07152B,#112E4B);border:1px solid #244968;border-radius:20px;padding:12px;overflow:hidden;color:white;font-family:system-ui">
-<div style="display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap;padding:5px 9px"><strong>DERK · DIGITAL NETWORK</strong><span style="font-size:12px;color:#9FC9DB">Наведите на узел или нажмите, чтобы увидеть ресурс</span></div>
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 485 280" style="width:100%;height:auto" role="img" aria-label="Схематический контур Казахстана с цифровыми ресурсами">
-<polygon points="{outline}" fill="#123653" stroke="#4EE0F5" stroke-width="2.4" stroke-linejoin="round"/>
-{''.join(node_svg)}
-</svg>
-<div id="derk-tooltip" style="display:none;position:absolute;z-index:30;max-width:245px;background:#F8FCFF;color:#12253C;border-radius:12px;padding:12px;box-shadow:0 10px 35px #0008;font-size:13px;pointer-events:none"></div>
-<div style="padding:0 9px 9px;font-size:11px;color:#8FAEBF">Узлы — уникальные ссылки; расположение условное, линии декоративные. Это не географическая карта и не доказательство информационных связей.</div></div>"""
-svg_html += """
-<script>
-(() => {
- const root = document.getElementById('derk-map');
- const tip = document.getElementById('derk-tooltip');
- let pinned = false;
- const escapeHtml = s => String(s || '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
- function render(node, pin) {
-   const d = node.dataset;
-   pinned = pin;
-   const safeUrl = /^https?:\/\//i.test(d.url || '') ? d.url : '#';
-   tip.innerHTML = '<div style="font-weight:750;font-size:14px;margin-bottom:5px">'+escapeHtml(d.name || 'Без названия')+'</div>'+
-      '<div style="color:#51647A;margin-bottom:9px">'+escapeHtml(d.group)+' · '+escapeHtml(d.platform)+(d.language ? ' · '+escapeHtml(d.language) : '')+'</div>'+
-      (pin ? '<a href="'+escapeHtml(safeUrl)+'" target="_blank" rel="noopener noreferrer" style="display:inline-block;background:#086C9E;color:white;padding:8px 10px;border-radius:7px;text-decoration:none">Открыть ресурс ↗</a>' : '<span style="font-size:11px;color:#66798A">Нажмите для перехода к ссылке</span>');
-   tip.style.display = 'block';
-   tip.style.pointerEvents = pin ? 'auto' : 'none';
-   const r = root.getBoundingClientRect(), n = node.getBoundingClientRect();
-   let x = n.left + n.width/2 - r.left + 14;
-   let y = n.top - r.top - 8;
-   const maxX = root.clientWidth - Math.min(245, root.clientWidth - 18) - 8;
-   tip.style.left = Math.max(8, Math.min(x, maxX)) + 'px';
-   tip.style.top = Math.max(8, y) + 'px';
- }
- root.querySelectorAll('.derk-node').forEach(node => {
-   node.addEventListener('mouseenter', () => { if (!pinned) render(node, false); });
-   node.addEventListener('mouseleave', () => { if (!pinned) tip.style.display='none'; });
-   node.addEventListener('click', e => { e.stopPropagation(); render(node, true); });
-   node.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); render(node, true); } });
- });
- root.addEventListener('click', e => { if (!e.target.closest('.derk-node') && !e.target.closest('#derk-tooltip')) { pinned=false;tip.style.display='none'; } });
-})();
-</script>
-"""
-components.html(svg_html, height=390, scrolling=False)
-
-st.subheader('Цифровые ресурсы')
-if resources.empty:
-    st.info('Для выбранных фильтров пока нет ресурсов с корректными ссылками.')
-else:
-    st.caption('Все найденные ресурсы показаны ниже. Нажмите «Открыть ресурс» для перехода на исходную площадку.')
+    # Stable conceptual coordinates: deterministic clusters per ethnic group.
+    # There are NO asserted cross-resource edges without verified link evidence.
+    import json
+    import collections
+    import statistics
+    import random
+    import math
+    group_indices = {g:i for i,g in enumerate(groups)}
+    nodes = []
     for _, item in resources.iterrows():
-        group = html.escape(str(item['ethnic_group']))
-        name = html.escape(str(item['community_name']) or 'Без названия')
-        platform_label = html.escape(str(item['platform']))
-        language_label = html.escape(str(item['language']))
-        color = GROUP_COLORS.get(str(item['ethnic_group']), '#36D9F5')
-        st.markdown(f'<div class="derk-card" style="border-left:4px solid {color}"><div class="derk-name">{name}</div><div class="derk-meta">{group} · {platform_label}' + (f' · {language_label}' if language_label else '') + '</div></div>', unsafe_allow_html=True)
-        st.link_button('Открыть ресурс ↗', str(item['public_url']), use_container_width=True)
+        g = str(item['ethnic_group']); key = str(item['_url_key'])
+        digest = hashlib.sha256((g+'|'+key).encode('utf-8')).digest()
+        rng = random.Random(int.from_bytes(digest[:8], 'big'))
+        i = group_indices[g]
+        theta = 2*math.pi*i/max(len(groups),1) - math.pi/2
+        # Larger radius for more groups; consistent group anchors across filtering.
+        anchor_x = 500 + (240 if len(groups)>1 else 0)*math.cos(theta)
+        anchor_y = 285 + (158 if len(groups)>1 else 0)*math.sin(theta)
+        phi = rng.uniform(0, 2*math.pi)
+        r = 12 + 74*math.sqrt(rng.random())
+        x = max(38,min(962,anchor_x+r*math.cos(phi)))
+        y = max(35,min(535,anchor_y+r*math.sin(phi)))
+        nodes.append({'x':round(x,2),'y':round(y,2),'color':colors[g], 'name':str(item['community_name']), 'group':g, 'platform':str(item['platform']), 'language':str(item['language']), 'url':str(item['public_url'])})
+    counts = resources['platform'].value_counts()
+    top_platform = str(counts.index[0]) if len(counts) else '—'
+    pct = (100*counts.iloc[0]/len(resources)) if len(resources) else 0
+    data_json = json.dumps(nodes,ensure_ascii=False).replace('<','\u003c').replace('>','\u003e').replace('&','\u0026')
+    strings_json = json.dumps({k:L[k] for k in ['tip','explain','nodes','dpi','platforms','idae','links','links_empty','open']},ensure_ascii=False).replace('<','\u003c')
+    # IDAE value intentionally not fabricated: no denominator is recomputed from partial records.
+    panel_html = r'''<style>
+    *{box-sizing:border-box}body{margin:0;background:#071426;color:#ecf7ff;font-family:Inter,system-ui,Arial,sans-serif}
+    .shell{position:relative;min-height:635px;overflow:hidden;border:1px solid #234964;border-radius:20px;background:radial-gradient(ellipse at 52% 43%,#153456 0%,#0a1b31 50%,#071426 100%)}
+    .head{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:18px 22px;position:relative;z-index:2}.head strong{letter-spacing:.12em;font-size:13px;color:#bceeff}.head span{color:#7bacc7;font-size:12px}
+    .network{position:absolute;inset:30px 0 5px;width:100%;height:calc(100% - 35px);touch-action:pan-y;cursor:grab}.network:active{cursor:grabbing}
+    .panel{position:absolute;z-index:3;background:rgba(9,27,47,.89);border:1px solid rgba(65,193,229,.35);box-shadow:0 8px 35px #0006,inset 0 0 22px #1c5a6a20;border-radius:13px;padding:12px 15px;min-width:160px;max-width:210px;backdrop-filter:blur(12px)}
+    .panel .label{color:#8dbad0;font-size:11px;letter-spacing:.06em}.panel .value{font-size:24px;font-weight:750;margin-top:4px}.panel .sub{color:#94b5c8;font-size:11px;margin-top:3px;line-height:1.4}
+    .tl{left:18px;top:70px}.tr{right:18px;top:70px}.bl{left:18px;bottom:25px}.br{right:18px;bottom:25px}
+    .dot{cursor:pointer;outline:none}.dot .halo{opacity:.14;transition:opacity .2s,r .2s}.dot:hover .halo,.dot:focus .halo{opacity:.38;r:14}
+    .tip{display:none;position:absolute;z-index:8;max-width:265px;background:#102b47;color:#f4fbff;border:1px solid #4cbad8;border-radius:12px;padding:13px;box-shadow:0 12px 35px #000b;font-size:13px;line-height:1.5}.tip a{display:inline-block;margin-top:8px;background:#176488;color:white;text-decoration:none;border-radius:7px;padding:7px 10px}.tip small{color:#a3c5d6}
+    .footer{position:absolute;z-index:2;left:22%;right:22%;bottom:13px;text-align:center;color:#7898aa;font-size:10px;pointer-events:none}
+    @media(max-width:680px){.shell{min-height:675px}.head{padding:14px}.head strong{font-size:11px}.head span{display:none}.network{top:125px;height:375px}.panel{min-width:0;width:calc(50% - 20px);max-width:none;padding:10px;backdrop-filter:none}.panel .value{font-size:19px}.tl{top:52px;left:12px}.tr{top:52px;right:12px}.bl{bottom:58px;left:12px}.br{bottom:58px;right:12px}.footer{left:15px;right:15px;bottom:8px}.tip{max-width:220px}}
+    </style>
+    <div class="shell" id="shell"><div class="head"><strong>DERK · <span id="mapTitle"></span></strong><span id="mapHint"></span></div>
+      <svg class="network" id="network" viewBox="0 0 1000 570" xmlns="http://www.w3.org/2000/svg" aria-label="Interactive digital resource network">
+      <defs><pattern id="grid" width="42" height="42" patternUnits="userSpaceOnUse"><path d="M42 0H0V42" fill="none" stroke="#286182" stroke-width=".6" opacity=".24"/></pattern><radialGradient id="glow"><stop stop-color="#164867" stop-opacity=".35"/><stop offset="1" stop-color="#164867" stop-opacity="0"/></radialGradient></defs>
+      <rect width="1000" height="570" fill="url(#grid)"/><ellipse cx="500" cy="285" rx="440" ry="270" fill="url(#glow)"/><g id="world"></g></svg>
+      <div class="panel tl"><div class="label" id="dpiLabel"></div><div class="value" id="nCount"></div><div class="sub" id="nGroups"></div></div>
+      <div class="panel tr"><div class="label" id="platformLabel"></div><div class="value" id="pValue"></div><div class="sub" id="pSub"></div></div>
+      <div class="panel bl"><div class="label" id="idaeLabel"></div><div class="value">IDAE</div><div class="sub" id="idaeSub"></div></div>
+      <div class="panel br"><div class="label" id="linksLabel"></div><div class="value">—</div><div class="sub" id="linksSub"></div></div>
+      <div class="tip" id="tip"></div><div class="footer" id="explain"></div>
+    </div>
+    <script>
+    (()=>{
+      const data=__NODES__, t=__STRINGS__, shell=document.getElementById('shell'), svg=document.getElementById('network'), world=document.getElementById('world'), tip=document.getElementById('tip');
+      const escape=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+      const set=(id,v)=>document.getElementById(id).textContent=v;
+      set('mapTitle',t.nodes);set('mapHint',t.tip);set('dpiLabel',t.dpi);set('platformLabel',t.platforms);set('idaeLabel',t.idae);set('linksLabel',t.links);set('linksSub',t.links_empty);set('explain',t.explain);
+      set('nCount',__COUNT__);set('nGroups',__GROUPS__);set('pValue',__TOP_PLATFORM__);set('pSub',__TOP_PCT__);set('idaeSub','See Analytics / Аналитика / Аналитика');
+      const NS='http://www.w3.org/2000/svg';const make=(name,attrs)=>{const e=document.createElementNS(NS,name);Object.entries(attrs).forEach(([k,v])=>e.setAttribute(k,v));return e};
+      // Faint decorative ambient points only; no resource-to-resource connections asserted.
+      for(let i=0;i<85;i++){const x=(i*177.7)%1000,y=(i*97.31)%570;world.appendChild(make('circle',{cx:x,cy:y,r:'.9',fill:'#70a8c6',opacity:'.20'}))}
+      let pinned=false;
+      function card(d,node,pin){pinned=pin;tip.innerHTML='<strong>'+escape(d.name||d.url)+'</strong><div><small>'+escape(d.group)+' · '+escape(d.platform)+(d.language?' · '+escape(d.language):'')+'</small></div>'+(pin?'<a href="'+escape(d.url)+'" target="_blank" rel="noopener noreferrer">'+escape(t.open)+'</a>':'');tip.style.display='block';tip.style.pointerEvents=pin?'auto':'none';const r=shell.getBoundingClientRect(),n=node.getBoundingClientRect();tip.style.left=Math.max(8,Math.min(n.left-r.left+12,shell.clientWidth-230))+'px';tip.style.top=Math.max(8,Math.min(n.top-r.top-5,shell.clientHeight-130))+'px'}
+      data.forEach(d=>{const g=make('g',{class:'dot',tabindex:'0',role:'button','aria-label':d.name||d.url});g.appendChild(make('circle',{cx:d.x,cy:d.y,r:12,fill:d.color,class:'halo'}));g.appendChild(make('circle',{cx:d.x,cy:d.y,r:4.4,fill:d.color,stroke:'#071426','stroke-width':1.1}));world.appendChild(g);g.addEventListener('mouseenter',()=>{if(!pinned)card(d,g,false)});g.addEventListener('mouseleave',()=>{if(!pinned)tip.style.display='none'});g.addEventListener('click',e=>{e.stopPropagation();card(d,g,true)});g.addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();card(d,g,true)}})});
+      shell.addEventListener('click',e=>{if(!e.target.closest('.dot')&&!e.target.closest('.tip')){pinned=false;tip.style.display='none'}});
+      // Wheel zoom and pointer drag, clamped for usability.
+      let zoom=1,tx=0,ty=0,drag=null;
+      function transform(){world.setAttribute('transform',`translate(${tx} ${ty}) scale(${zoom})`)}
+      svg.addEventListener('wheel',e=>{e.preventDefault();zoom=Math.min(3.5,Math.max(.7,zoom*(e.deltaY<0?1.12:.89)));transform()},{passive:false});
+      svg.addEventListener('pointerdown',e=>{if(e.target.closest('.dot'))return;drag={x:e.clientX,y:e.clientY,tx,ty};svg.setPointerCapture(e.pointerId)});
+      svg.addEventListener('pointermove',e=>{if(!drag)return;const r=svg.getBoundingClientRect();tx=drag.tx+(e.clientX-drag.x)*1000/r.width;ty=drag.ty+(e.clientY-drag.y)*570/r.height;transform()});
+      svg.addEventListener('pointerup',()=>drag=null);svg.addEventListener('pointercancel',()=>drag=null);
+    })();
+    </script>'''
+    panel_html = (panel_html.replace('__NODES__',data_json).replace('__STRINGS__',strings_json)
+       .replace('__COUNT__',json.dumps(str(len(resources))))
+       .replace('__GROUPS__',json.dumps(str(resources['ethnic_group'].nunique())+' '+L['groups'].lower()))
+       .replace('__TOP_PLATFORM__',json.dumps(top_platform,ensure_ascii=False))
+       .replace('__TOP_PCT__',json.dumps(f'{pct:.1f}%')))
+    components.html(panel_html,height=690,scrolling=False)
+    st.subheader(L['resources'])
+    st.caption(L['listnote'])
+    if resources.empty: st.info(L['empty'])
+    for _,item in resources.iterrows():
+        group=html.escape(str(item['ethnic_group']));name=html.escape(str(item['community_name']) or str(item['public_url']))
+        platform_name=html.escape(str(item['platform']));language=html.escape(str(item['language']))
+        color=colors.get(str(item['ethnic_group']),'#36D9F5')
+        st.markdown(f'<div class="derk-card" style="border-left:4px solid {color}"><div class="derk-name">{name}</div><div class="derk-meta">{group} · {platform_name}'+(f' · {language}' if language else '')+'</div></div>',unsafe_allow_html=True)
+        st.link_button(L['open'],str(item['public_url']),use_container_width=True)
 
 # Existing DPI and research editing functionality remain available.
 if mode == 'Исследовательский кабинет':
@@ -538,4 +558,4 @@ if mode == 'Исследовательский кабинет':
         st.bar_chart(data['platform'].value_counts())
 
 st.divider()
-st.caption('Методология: единица наблюдения — публичный цифровой ресурс с зафиксированным этнокультурным позиционированием. Самоидентификация отдельных пользователей не устанавливается. Карта использует приближённые центры регионов, а не границы административных единиц.')
+st.caption('Методология: единица наблюдения — публичный цифровой ресурс с зафиксированным этнокультурным позиционированием. Самоидентификация отдельных пользователей не устанавливается. Контур Казахстана является схематическим; расположение цифровых узлов не обозначает географию.')
