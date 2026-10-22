@@ -201,7 +201,14 @@ requested_view = str(st.query_params.get('derk_view', ''))
 nav_options = ['Публичная карта', 'Аналитика', 'Исследовательский кабинет', 'Контент-анализ']
 nav_index = 1 if requested_view == 'analytics' else 0
 mode = st.sidebar.radio(L['mode'], nav_options, index=nav_index, key='derk_mode',
-                        format_func=lambda v: {'Публичная карта':L['map'], 'Аналитика':L['analytics'], 'Исследовательский кабинет':L['cabinet'], 'Контент-анализ':'Контент-анализ'
+                        
+    format_func=lambda v: {
+        'Публичная карта': L['map'],
+        'Аналитика': L['analytics'],
+        'Исследовательский кабинет': L['cabinet'],
+        'Контент-анализ': 'Контент-анализ'
+    }[v])
+
 if mode != 'Аналитика' and requested_view == 'analytics':
     st.query_params.clear()
 
