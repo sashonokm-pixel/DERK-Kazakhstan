@@ -43,3 +43,21 @@ jobs:
       - name: Confirm pilot source
         run: |
           python -c "from content_intelligence.research_sources import RESEARCH_SOURCES; print('Pilot website:', RESEARCH_SOURCES['Немцы']['website'])"
+
+          
+      - name: Discover Wiedergeburt publications
+        run: |
+          python - <<'PY'
+          from content_intelligence.discovery import discover_candidates
+          from content_intelligence.research_sources import RESEARCH_SOURCES
+
+          website = RESEARCH_SOURCES["Немцы"]["website"]
+          print("Checking website:", website)
+
+          candidates = discover_candidates(website, limit=20)
+          print("Candidate links found:", len(candidates))
+
+          for number, article in enumerate(candidates, 1):
+              print(number, article["title_hint"], article["url"])
+          PY
+
