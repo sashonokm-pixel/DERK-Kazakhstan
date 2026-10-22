@@ -1,0 +1,38 @@
+
+name: DERK Content Intelligence - Test
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  discovery-test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout experimental branch
+        uses: actions/checkout@v4
+        with:
+          ref: feature-content-intelligence
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install requests beautifulsoup4 trafilatura
+
+      - name: Check DERK modules
+        run: |
+          python -m compileall -q content_intelligence
+          python -c "from content_intelligence import collector, discovery, research_sources; print('DERK modules imported successfully')"
+
+      - name: Confirm pilot source
+        run: |
+          python -c "from content_intelligence.research_sources import RESEARCH_SOURCES; print('Pilot website:', RESEARCH_SOURCES['Немцы']['website'])"
