@@ -72,7 +72,7 @@ def collect_article(url: str) -> dict:
             raw.extend(chunk)
             if len(raw) > maximum:
                 raise ValueError("Страница превышает лимит пилотного сборщика (3 МБ).")
-        response.encoding = response.apparent_encoding or "utf-8"
+        response.encoding = response.encoding or "utf-8"
         return extract_article_from_html(url, bytes(raw).decode(response.encoding, errors="replace"))
     finally:
         response.close()
