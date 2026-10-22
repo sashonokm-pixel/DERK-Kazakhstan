@@ -206,7 +206,7 @@ mode = st.sidebar.radio(L['mode'], nav_options, index=nav_index, key='derk_mode'
         'Публичная карта': L['map'],
         'Аналитика': L['analytics'],
         'Исследовательский кабинет': L['cabinet'],
-        'Контент-анализ': 'Контент-анализ'
+        'Контент-анализ': PANEL_TRANSLATIONS[st.session_state.derk_language]['content']
     }[v])
 
 if ((requested_view == 'analytics' and mode != 'Аналитика') or
@@ -839,28 +839,64 @@ if mode == 'Исследовательский кабинет':
 st.divider()
 st.caption('Методология: единица наблюдения — публичный цифровой ресурс с зафиксированным этнокультурным позиционированием. Самоидентификация отдельных пользователей не устанавливается. Географические контуры не используются; расположение цифровых узлов условное и не обозначает географию.')
 
-# DERK Content Intelligence — pilot
+# DERK Content Intelligence — pilot. Interface strings follow the global DERK language selector.
+CI_TRANSLATIONS = {
+    'ru': {
+        'heading': 'DERK Content Intelligence — анализ публикации',
+        'note': 'Экспериментальный модуль. Данные Supabase не изменяются.',
+        'url': 'Ссылка на публикацию',
+        'button': 'Анализировать публикацию',
+        'loading': 'Извлекаем текст публикации...',
+        'success': 'Текст публикации получен',
+        'title': 'Заголовок', 'date': 'Дата', 'author': 'Автор', 'language': 'Язык',
+        'unknown_m': 'Не определён', 'unknown_f': 'Не определена',
+        'text': 'Извлечённый текст', 'error': 'Не удалось обработать публикацию',
+    },
+    'kk': {
+        'heading': 'DERK Content Intelligence — жарияланымды талдау',
+        'note': 'Эксперименттік модуль. Supabase деректері өзгертілмейді.',
+        'url': 'Жарияланымға сілтеме',
+        'button': 'Жарияланымды талдау',
+        'loading': 'Жарияланым мәтіні алынуда...',
+        'success': 'Жарияланым мәтіні алынды',
+        'title': 'Тақырып', 'date': 'Күні', 'author': 'Автор', 'language': 'Тілі',
+        'unknown_m': 'Анықталмаған', 'unknown_f': 'Анықталмаған',
+        'text': 'Алынған мәтін', 'error': 'Жарияланымды өңдеу мүмкін болмады',
+    },
+    'en': {
+        'heading': 'DERK Content Intelligence — publication analysis',
+        'note': 'Experimental module. Supabase data is not modified.',
+        'url': 'Publication URL',
+        'button': 'Analyse publication',
+        'loading': 'Extracting publication text...',
+        'success': 'Publication text extracted',
+        'title': 'Title', 'date': 'Date', 'author': 'Author', 'language': 'Language',
+        'unknown_m': 'Not identified', 'unknown_f': 'Not identified',
+        'text': 'Extracted text', 'error': 'Unable to process publication',
+    },
+}
+
 if mode == 'Контент-анализ':
+    ci = CI_TRANSLATIONS[st.session_state.derk_language]
     st.divider()
-    with st.expander("DERK Content Intelligence — анализ публикации", expanded=False):
-        st.caption("Экспериментальный модуль. Данные Supabase не изменяются.")
+    with st.expander(ci['heading'], expanded=False):
+        st.caption(ci['note'])
         article_url = st.text_input(
-            "Ссылка на публикацию",
-            value="https://wiedergeburt-kasachstan.de/gruppa-zdorovya-otkryvaem-astanu-s-novoj-storony/",
-            key="derk_article_url",
+            ci['url'],
+            value='https://wiedergeburt-kasachstan.de/gruppa-zdorovya-otkryvaem-astanu-s-novoj-storony/',
+            key='derk_article_url',
         )
-        if st.button("Анализировать публикацию", key="derk_analyse_article"):
+        if st.button(ci['button'], key='derk_analyse_article'):
             from content_intelligence.collector import collect_article
             try:
-                with st.spinner("Извлекаем текст публикации..."):
+                with st.spinner(ci['loading']):
                     article = collect_article(article_url)
-                st.success("Текст публикации получен")
-                st.write("**Заголовок:**", article["title"] or "Не определён")
-                st.write("**Дата:**", article["date"] or "Не определена")
-                st.write("**Автор:**", article["author"] or "Не определён")
-                st.write("**Язык:**", article["language"] or "Не определён")
-                st.text_area("Извлечённый текст", article["text"], height=350)
+                st.success(ci['success'])
+                st.write(f"**{ci['title']}:**", article['title'] or ci['unknown_m'])
+                st.write(f"**{ci['date']}:**", article['date'] or ci['unknown_f'])
+                st.write(f"**{ci['author']}:**", article['author'] or ci['unknown_m'])
+                st.write(f"**{ci['language']}:**", article['language'] or ci['unknown_m'])
+                st.text_area(ci['text'], article['text'], height=350)
             except Exception as exc:
-                st.error(f"Не удалось обработать публикацию: {exc}")
-  
+                st.error(f"{ci['error']}: {exc}")
     
