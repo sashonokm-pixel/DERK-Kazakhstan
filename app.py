@@ -851,5 +851,5 @@ if mode == 'Контент-анализ':
                 st.write("**Язык:**", article["language"] or "Не определён")
                 st.text_area("Извлечённый текст", article["text"], height=350)
             except Exception as exc:
-            st.error(f"Не удалось обработать публикацию: {exc}")
+                st.error(f"Не удалось обработать публикацию: {exc}")
   
