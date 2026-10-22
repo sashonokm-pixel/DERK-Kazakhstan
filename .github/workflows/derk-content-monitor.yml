@@ -1,8 +1,15 @@
 
 name: DERK Content Intelligence - Test
 
+
 on:
   workflow_dispatch:
+  push:
+    branches:
+      - feature-content-intelligence
+    paths:
+      - '.github/workflows/derk-content-monitor.yml'
+
 
 permissions:
   contents: read
