@@ -34,22 +34,50 @@ def validate_public_url(url: str) -> str:
 
 
 def extract_article_from_html(url: str, html: str) -> dict:
-    """Parse supplied HTML without making any network request."""
-    result = trafilatura.extract(
-        html, url=url, output_format="json", with_metadata=True,
-        include_links=False, favor_precision=True,
+    """Extract one article; try conservative and recall-oriented strategies."""
+    if not html.strip():
+        raise ValueError("Сайт вернул пустую HTML-страницу.")
+
+    for precision in (True, False):
+        result = trafilatura.extract(
+            html,
+            url=url,
+            output_format="json",
+            with_metadata=True,
+            include_links=False,
+            favor_precision=precision,
+            favor_recall=not precision,
+        )
+        if not result:
+            continue
+        item = json.loads(result)
+        body = (item.get("text") or "").strip()
+        if not body:
+            continue
+        return {
+            "url": url,
+            "title": item.get("title") or "",
+            "date": item.get("date") or "",
+            "author": item.get("author") or "",
+            "text": body,
+            "language": item.get("language") or "",
+        }
+
+    # Diagnostic fallback: retain text for inspection, but do not present
+    # navigation or boilerplate as a verified research article.
+    fallback = (trafilatura.html2txt(html) or "").strip()
+    if fallback:
+        raise ValueError(
+            "Trafilatura не распознала статью. Страница содержит текст, "
+            "но его нельзя автоматически считать текстом публикации. "
+            "Проверьте, что ссылка открывает именно статью, а не главную страницу "
+            "или защитный экран сайта."
+        )
+    raise ValueError(
+        "Сайт вернул HTML, но извлечь текст не удалось. "
+        "Возможно, содержимое загружается через JavaScript "
+        "или сайт ограничивает автоматические запросы."
     )
-    if not result:
-        raise ValueError("Не удалось выделить текст статьи из HTML.")
-    item = json.loads(result)
-    return {
-        "url": url,
-        "title": item.get("title") or "",
-        "date": item.get("date") or "",
-        "author": item.get("author") or "",
-        "text": item.get("text") or "",
-        "language": item.get("language") or "",
-    }
 
 
 def collect_article(url: str) -> dict:
