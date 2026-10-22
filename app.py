@@ -830,25 +830,26 @@ st.divider()
 st.caption('Методология: единица наблюдения — публичный цифровой ресурс с зафиксированным этнокультурным позиционированием. Самоидентификация отдельных пользователей не устанавливается. Географические контуры не используются; расположение цифровых узлов условное и не обозначает географию.')
 
 # DERK Content Intelligence — pilot
-st.divider()
-with st.expander("DERK Content Intelligence — анализ публикации", expanded=False):
-    st.caption("Экспериментальный модуль. Данные Supabase не изменяются.")
-    article_url = st.text_input(
-        "Ссылка на публикацию",
-        value="https://wiedergeburt-kasachstan.de/gruppa-zdorovya-otkryvaem-astanu-s-novoj-storony/",
-        key="derk_article_url",
-    )
-    if st.button("Анализировать публикацию", key="derk_analyse_article"):
-        from content_intelligence.collector import collect_article
-        try:
-            with st.spinner("Извлекаем текст публикации..."):
-                article = collect_article(article_url)
-            st.success("Текст публикации получен")
-            st.write("**Заголовок:**", article["title"] or "Не определён")
-            st.write("**Дата:**", article["date"] or "Не определена")
-            st.write("**Автор:**", article["author"] or "Не определён")
-            st.write("**Язык:**", article["language"] or "Не определён")
-            st.text_area("Извлечённый текст", article["text"], height=350)
-        except Exception as exc:
+if mode == 'Контент-анализ':
+    st.divider()
+    with st.expander("DERK Content Intelligence — анализ публикации", expanded=False):
+        st.caption("Экспериментальный модуль. Данные Supabase не изменяются.")
+        article_url = st.text_input(
+            "Ссылка на публикацию",
+            value="https://wiedergeburt-kasachstan.de/gruppa-zdorovya-otkryvaem-astanu-s-novoj-storony/",
+            key="derk_article_url",
+        )
+        if st.button("Анализировать публикацию", key="derk_analyse_article"):
+            from content_intelligence.collector import collect_article
+            try:
+                with st.spinner("Извлекаем текст публикации..."):
+                    article = collect_article(article_url)
+                st.success("Текст публикации получен")
+                st.write("**Заголовок:**", article["title"] or "Не определён")
+                st.write("**Дата:**", article["date"] or "Не определена")
+                st.write("**Автор:**", article["author"] or "Не определён")
+                st.write("**Язык:**", article["language"] or "Не определён")
+                st.text_area("Извлечённый текст", article["text"], height=350)
+            except Exception as exc:
             st.error(f"Не удалось обработать публикацию: {exc}")
   
