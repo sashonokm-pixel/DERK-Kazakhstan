@@ -44,6 +44,30 @@ def _same_site(candidate: str, root: str) -> bool:
     return a.scheme in ('http', 'https') and a.hostname == b.hostname and not a.username and not a.password
 
 
+# Preliminary classification only: a URL is never verified as an article here.
+_NAVIGATION_PATHS = {
+    'istoriya-organizatsii', 'region', 'archive-news', 'library',
+    'retsepty', 'mediatеka', 'mediateka', 'contacts', 'kontakt',
+    'kontakty', 'about', 'o-nas', 'news', 'novosti',
+}
+_NAVIGATION_TITLES = {
+    'история организации', 'регионы', 'архив новостей',
+    'библиотека', 'немецкая кухня', 'медиатека', 'контакты',
+}
+
+
+def classify_candidate(url: str, title: str = '') -> str:
+    """Mark obvious navigation links for review; do not discard anything."""
+    path = urlparse(url).path.strip('/').lower()
+    segment = path.split('/')[-1] if path else ''
+    label = ' '.join(title.casefold().split())
+    if segment in _NAVIGATION_PATHS or label in _NAVIGATION_TITLES:
+        return 'navigation_review'
+    if 'sft_category=' in url.lower():
+        return 'navigation_review'
+    return 'article_candidate'
+
+
 def discover_candidates(source_url: str, limit: int = 40) -> list[dict]:
     """Discover links from a site's landing/listing page; no crawling or DB writes.
 
@@ -65,7 +89,8 @@ def discover_candidates(source_url: str, limit: int = 40) -> list[dict]:
         if urlparse(absolute).path.lower().endswith(('.jpg','.jpeg','.png','.gif','.pdf','.zip','.mp4','.webp')):
             return
         seen.add(absolute)
-        result.append({'url': absolute, 'title_hint': title.strip(), 'status': 'candidate'})
+        result.append({'url': absolute, 'title_hint': title.strip(), 'status': 'candidate',
+                       'review_group': classify_candidate(absolute, title)})
 
     if 'xml' in kind or markup.lstrip().startswith('<?xml'):
         try:
