@@ -626,7 +626,7 @@ if mode == 'Публичная карта':
     }[st.session_state.derk_language]
     reference_json = json.dumps(reference_info, ensure_ascii=False).replace('<','\u003c').replace('>','\u003e')
     data_json = json.dumps(nodes,ensure_ascii=False).replace('<','\u003c').replace('>','\u003e').replace('&','\u0026')
-    strings_json = json.dumps({**{k:L[k] for k in ['tip','explain','nodes','dpi','platforms','idae','links','links_empty','content','content_sub','open']},
+    strings_json = json.dumps({**{k:L[k] for k in ['tip','explain','nodes','dpi','platforms','idae','links','links_empty','open']},
                                **PANEL_TRANSLATIONS[st.session_state.derk_language]},ensure_ascii=False).replace('<','\u003c')
     try:
         app_base_url = str(st.context.url).split('?')[0].split('#')[0]
@@ -862,4 +862,5 @@ if mode == 'Контент-анализ':
                 st.text_area("Извлечённый текст", article["text"], height=350)
             except Exception as exc:
                 st.error(f"Не удалось обработать публикацию: {exc}")
+  
     
