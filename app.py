@@ -70,9 +70,9 @@ LANGS = {
  'en': {'subtitle':'Digital Ethnic Representation of Kazakhstan','map':'Public map','analytics':'Analytics','cabinet':'Research workspace','ethnic':'Ethnic group','platform':'Platform','all':'All','resources':'Digital resources','filtered':'Filtered resources','groups':'Ethnic groups','share':'Ethnic share in dataset','open':'Open resource ↗','empty':'No verified resources with valid links match these filters.','tip':'Hover over or select a node to view its resource','explain':'Nodes are unique verified links. Positions are conceptual; background lines do not establish information relationships.','listnote':'Verified digital resources matching the selected filters','nodes':'DIGITAL NEURAL MAP','dpi':'Digital presence','platforms':'Platforms','idae':'IDAE index','links':'Verified connections','links_empty':'No verified connection data','mode':'DERK sections'}
 }
 PANEL_TRANSLATIONS = {
- 'ru': {'population':'Этнический состав','population_sub':'Население Казахстана · 2026','dpi_sub':'Ресурсы по этносам ↗','platform_sub':'Распределение по платформам ↗','idae_sub':'Ресурсов на 10 000 человек ↗','links_sub':'Методология связей ↗','click':'Нажмите, чтобы открыть аналитику'},
- 'kk': {'population':'Этностық құрам','population_sub':'Қазақстан халқы · 2026','dpi_sub':'Этностар бойынша ресурстар ↗','platform_sub':'Платформалар үлесі ↗','idae_sub':'10 000 адамға шаққандағы ресурстар ↗','links_sub':'Байланыстар әдіснамасы ↗','click':'Аналитиканы ашу үшін басыңыз'},
- 'en': {'population':'Ethnic composition','population_sub':'Kazakhstan population · 2026','dpi_sub':'Resources by ethnic group ↗','platform_sub':'Platform distribution ↗','idae_sub':'Resources per 10,000 people ↗','links_sub':'Connection methodology ↗','click':'Click to open analytics'}
+ 'ru': {'population':'Этнический состав','population_sub':'Население Казахстана · 2026','dpi_sub':'Ресурсы по этносам ↗','platform_sub':'Распределение по платформам ↗','idae_sub':'Ресурсов на 10 000 человек ↗','links_sub':'Методология связей ↗','content':'Контент-анализ','content_sub':'Анализ публикаций ↗','click':'Нажмите, чтобы открыть аналитику'},
+ 'kk': {'population':'Этностық құрам','population_sub':'Қазақстан халқы · 2026','dpi_sub':'Этностар бойынша ресурстар ↗','platform_sub':'Платформалар үлесі ↗','idae_sub':'10 000 адамға шаққандағы ресурстар ↗','links_sub':'Байланыстар әдіснамасы ↗','content':'Контент-талдау','content_sub':'Жарияланымдарды талдау ↗','click':'Аналитиканы ашу үшін басыңыз'},
+ 'en': {'population':'Ethnic composition','population_sub':'Kazakhstan population · 2026','dpi_sub':'Resources by ethnic group ↗','platform_sub':'Platform distribution ↗','idae_sub':'Resources per 10,000 people ↗','links_sub':'Connection methodology ↗','content':'Content analysis','content_sub':'Analyse publications ↗','click':'Click to open analytics'}
 }
 
 st.session_state.setdefault('derk_language','en')
@@ -199,7 +199,7 @@ st.caption('DERK 3.7 · ' + L['subtitle'])
 # The public view is a conceptual network, not a geographic population map.
 requested_view = str(st.query_params.get('derk_view', ''))
 nav_options = ['Публичная карта', 'Аналитика', 'Исследовательский кабинет', 'Контент-анализ']
-nav_index = 1 if requested_view == 'analytics' else 0
+nav_index = 1 if requested_view == 'analytics' else 3 if requested_view == 'content' else 0
 mode = st.sidebar.radio(L['mode'], nav_options, index=nav_index, key='derk_mode',
                         
     format_func=lambda v: {
@@ -209,7 +209,8 @@ mode = st.sidebar.radio(L['mode'], nav_options, index=nav_index, key='derk_mode'
         'Контент-анализ': 'Контент-анализ'
     }[v])
 
-if mode != 'Аналитика' and requested_view == 'analytics':
+if ((requested_view == 'analytics' and mode != 'Аналитика') or
+        (requested_view == 'content' and mode != 'Контент-анализ')):
     st.query_params.clear()
 
 data = load_data()
@@ -625,7 +626,7 @@ if mode == 'Публичная карта':
     }[st.session_state.derk_language]
     reference_json = json.dumps(reference_info, ensure_ascii=False).replace('<','\u003c').replace('>','\u003e')
     data_json = json.dumps(nodes,ensure_ascii=False).replace('<','\u003c').replace('>','\u003e').replace('&','\u0026')
-    strings_json = json.dumps({**{k:L[k] for k in ['tip','explain','nodes','dpi','platforms','idae','links','links_empty','open']},
+    strings_json = json.dumps({**{k:L[k] for k in ['tip','explain','nodes','dpi','platforms','idae','links','links_empty','content','content_sub','open']},
                                **PANEL_TRANSLATIONS[st.session_state.derk_language]},ensure_ascii=False).replace('<','\u003c')
     try:
         app_base_url = str(st.context.url).split('?')[0].split('#')[0]
@@ -635,6 +636,8 @@ if mode == 'Публичная карта':
         app_base_url = 'https://derk-dpi-test.streamlit.app/'
     links_json = json.dumps({k:app_base_url+'?derk_view=analytics&derk_section='+k
                              for k in ['population','dpi','idae','platforms','connections']},ensure_ascii=False)
+
+    links_json = json.dumps({**json.loads(links_json), 'content': app_base_url + '?derk_view=content'}, ensure_ascii=False)
 
     # IDAE value intentionally not fabricated: no denominator is recomputed from partial records.
     panel_html = r'''<style>
@@ -660,7 +663,7 @@ if mode == 'Публичная карта':
       <a class="panel tl" id="linkDpi" target="_blank" rel="noopener noreferrer"><div class="label" id="dpiLabel"></div><div class="value" id="nCount"></div><div class="sub" id="nGroups"></div></a>
       <a class="panel tr" id="linkPlatforms" target="_blank" rel="noopener noreferrer"><div class="label" id="platformLabel"></div><div class="value" id="pValue"></div><div class="sub" id="pSub"></div></a>
       <a class="panel bl" id="linkIdae" target="_blank" rel="noopener noreferrer"><div class="label" id="idaeLabel"></div><div class="value">IDAE</div><div class="sub" id="idaeSub"></div></a>
-      <a class="panel br" id="linkConnections" target="_blank" rel="noopener noreferrer"><div class="label" id="linksLabel"></div><div class="value">—</div><div class="sub" id="linksSub"></div></a>
+      <a class="panel br" id="linkContent" target="_blank" rel="noopener noreferrer"><div class="label" id="contentLabel"></div><div class="value">DERK CI</div><div class="sub" id="contentSub"></div></a>
       <a class="panel tc" id="linkPopulation" target="_blank" rel="noopener noreferrer"><div class="label" id="populationLabel"></div><div class="value">20 499 822</div><div class="sub" id="populationSub"></div></a>
       <div class="kazakh-reference" id="kazakhReference" role="status" aria-live="polite"><div class="k-name" id="kazakhName"></div><div class="k-small" id="kazakhLabel"></div><div class="k-count">14 664 202</div><div class="k-small" id="kazakhPeople"></div><div class="k-note" id="kazakhSource"></div><div class="k-note" id="kazakhNote"></div></div>
       <div class="tip" id="tip"></div><div class="footer" id="explain"></div>
@@ -670,9 +673,9 @@ if mode == 'Публичная карта':
       const kazakhMode=__KAZAKH_MODE__, kazakh=__KAZAKH_INFO__, links=__LINKS__, data=__NODES__, t=__STRINGS__, shell=document.getElementById('shell'), svg=document.getElementById('network'), world=document.getElementById('world'), tip=document.getElementById('tip');
       const escape=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
       const set=(id,v)=>document.getElementById(id).textContent=v;
-      set('dpiLabel',t.dpi);set('platformLabel',t.platforms);set('idaeLabel',t.idae);set('linksLabel',t.links);set('linksSub',t.links_sub);set('explain',t.explain);
+      set('dpiLabel',t.dpi);set('platformLabel',t.platforms);set('idaeLabel',t.idae);set('contentLabel',t.content);set('contentSub',t.content_sub);set('explain',t.explain);
       set('populationLabel',t.population);set('populationSub',t.population_sub);
-       [['linkPopulation','population'],['linkDpi','dpi'],['linkPlatforms','platforms'],['linkIdae','idae'],['linkConnections','connections']].forEach(([id,key])=>document.getElementById(id).href=links[key]);
+       [['linkPopulation','population'],['linkDpi','dpi'],['linkPlatforms','platforms'],['linkIdae','idae'],['linkContent','content']].forEach(([id,key])=>document.getElementById(id).href=links[key]);
        set('nCount',__COUNT__);set('nGroups',__GROUPS__);set('pValue',__TOP_PLATFORM__);set('pSub',__TOP_PCT__+' · ↗');set('idaeSub',t.idae_sub);
       if(kazakhMode){
         shell.classList.add('kazakh-mode');
@@ -859,4 +862,4 @@ if mode == 'Контент-анализ':
                 st.text_area("Извлечённый текст", article["text"], height=350)
             except Exception as exc:
                 st.error(f"Не удалось обработать публикацию: {exc}")
-  
+    
