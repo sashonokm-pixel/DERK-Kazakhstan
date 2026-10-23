@@ -70,7 +70,9 @@ jobs:
           for key, value in summary.items():
               print(f"{key}: {value}")
           PY
-
+      - name: Find latest 30 Wiedergeburt articles
+        run: |
+          python -m content_intelligence.latest_articles
       - name: Discover themes in article corpus
         run: |
           python content_intelligence/thematic_analysis.py derk_results/article_corpus.csv --output-dir derk_results/topic_results --topics 4
