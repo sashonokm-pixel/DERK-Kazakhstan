@@ -31,12 +31,12 @@ jobs:
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install requests beautifulsoup4 trafilatura langdetect
+          pip install requests beautifulsoup4 trafilatura langdetect pandas scikit-learn
 
       - name: Check DERK modules
         run: |
           python -m compileall -q content_intelligence
-          python -c "from content_intelligence import collector, discovery, research_sources, classifier; print('DERK modules imported successfully')"
+          python -c "from content_intelligence import collector, discovery, research_sources, classifier, thematic_analysis; print('DERK modules imported successfully')"
 
       - name: Confirm pilot source
         run: |
@@ -71,13 +71,20 @@ jobs:
               print(f"{key}: {value}")
           PY
 
+      - name: Discover themes in article corpus
+        run: |
+          python content_intelligence/thematic_analysis.py derk_results/article_corpus.csv --output-dir derk_results/topic_results --topics 4
+
       - name: Upload research CSV files
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: derk-wiedergeburt-corpus
-          path: derk_results/*.csv
+          path: |
+            derk_results/*.csv
+            derk_results/topic_results/*.csv
           if-no-files-found: warn
           retention-days: 7
+
 
 
