@@ -56,6 +56,24 @@ def canonical(href: str, base: str) -> str:
     return urldefrag(urljoin(base, href))[0]
 
 
+# Sections of the website that are not news articles.
+EXCLUDED_PATHS = {
+    "archive-news",
+    "biblioteka",
+    "library",
+    "mediateka",
+    "mediаteka",
+    "istoriya-organizatsii",
+    "predprinimatelstvo",
+    "molodezh",
+    "obuchenie",
+    "sotsialnaya-rabota",
+    "contacts",
+    "kontakty",
+    "region",
+    "regions",
+}
+
 def archive_links(markup: str, page_url: str):
     soup = BeautifulSoup(markup, "html.parser")
     article_links, next_pages = [], []
@@ -63,7 +81,11 @@ def archive_links(markup: str, page_url: str):
         url = canonical(a.get("href", ""), page_url)
         if not same_site(url):
             continue
-        path = urlparse(url).path.lower().rstrip("/")
+        path = urlparse(url).path.lower().rstrip("/") 
+        last_segment = path.split("/")[-1]
+        if last_segment in EXCLUDED_PATHS:
+            continue
+
         if path.endswith((".pdf", ".jpg", ".png", ".zip", ".webp")):
             continue
         classes = " ".join(a.get("class", []))
