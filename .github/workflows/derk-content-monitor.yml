@@ -1,6 +1,4 @@
-
 name: DERK Content Intelligence - Discovery Monitor
-
 
 on:
   workflow_dispatch:
@@ -9,7 +7,7 @@ on:
       - feature-content-intelligence
     paths:
       - '.github/workflows/derk-content-monitor.yml'
-
+      - 'content_intelligence/**'
 
 permissions:
   contents: read
@@ -38,13 +36,12 @@ jobs:
       - name: Check DERK modules
         run: |
           python -m compileall -q content_intelligence
-          python -c "from content_intelligence import collector, discovery, research_sources; print('DERK modules imported successfully')"
+          python -c "from content_intelligence import collector, discovery, research_sources, classifier; print('DERK modules imported successfully')"
 
       - name: Confirm pilot source
         run: |
           python -c "from content_intelligence.research_sources import RESEARCH_SOURCES; print('Pilot website:', RESEARCH_SOURCES['Немцы']['website'])"
 
-          
       - name: Discover Wiedergeburt publications
         run: |
           python - <<'PY'
@@ -60,4 +57,27 @@ jobs:
           for number, article in enumerate(candidates, 1):
               print(number, article["title_hint"], article["url"])
           PY
+
+      - name: Classify pages and build article corpus
+        run: |
+          python - <<'PY'
+          from content_intelligence.classifier import build_corpus
+          from content_intelligence.research_sources import RESEARCH_SOURCES
+
+          website = RESEARCH_SOURCES["Немцы"]["website"]
+          summary = build_corpus(website, limit=20, output_dir="derk_results")
+          print("Classification results:")
+          for key, value in summary.items():
+              print(f"{key}: {value}")
+          PY
+
+      - name: Upload research CSV files
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: derk-wiedergeburt-corpus
+          path: derk_results/*.csv
+          if-no-files-found: warn
+          retention-days: 7
+
 
