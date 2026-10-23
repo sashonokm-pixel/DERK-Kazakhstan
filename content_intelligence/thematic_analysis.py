@@ -64,10 +64,28 @@ def analyze(input_csv: str, output_dir: str = "topic_results", n_topics: int = 4
     counts["share_percent"] = (counts["articles"] / len(data) * 100).round(1)
     summary = pd.DataFrame(topic_rows).merge(counts, on=["topic_id", "topic"], how="left").fillna({"articles": 0, "share_percent": 0})
 
+    # Show representative articles for each statistical cluster for human review.
+    examples = []
+    for topic_id, group in data.groupby("topic_id"):
+        for _, article in group.sort_values("topic_strength", ascending=False).head(3).iterrows():
+            body = re.sub(r"\s+", " ", str(article["text"])).strip()
+            examples.append({
+                "topic_id": int(topic_id),
+                "title": str(article.get("title", "") or article.get("title_hint", "")),
+                "url": str(article.get("url", "")),
+                "topic_strength": float(article["topic_strength"]),
+                "excerpt": body[:350],
+            })
+    examples_df = pd.DataFrame(examples)
+    summary["example_titles"] = summary["topic_id"].map(
+        examples_df.groupby("topic_id")["title"].apply(lambda titles: " | ".join(titles))
+    ).fillna("")
+
     output = Path(output_dir)
     output.mkdir(parents=True, exist_ok=True)
     data.to_csv(output / "articles_with_topics.csv", index=False, encoding="utf-8-sig")
     summary.to_csv(output / "topic_summary.csv", index=False, encoding="utf-8-sig")
+    examples_df.to_csv(output / "topic_examples.csv", index=False, encoding="utf-8-sig")
     print(f"Проанализировано статей: {len(data)}; предварительных тем: {count}")
     print(summary.to_string(index=False))
     print("Результаты:", output.resolve())
