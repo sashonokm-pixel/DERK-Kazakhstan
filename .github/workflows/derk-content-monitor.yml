@@ -10,7 +10,7 @@ on:
       - 'content_intelligence/**'
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   discovery-test:
