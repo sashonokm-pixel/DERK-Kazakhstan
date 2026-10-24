@@ -1120,7 +1120,7 @@ if mode == 'Контент-анализ':
             value='https://wiedergeburt-kasachstan.de/gruppa-zdorovya-otkryvaem-astanu-s-novoj-storony/',
             key='derk_article_url',
         )
-        if st.button(ci['button'], key='derk_analyse_article'):
+       if st.button(ci['button'], key='derk_analyse_article_legacy'):
             from content_intelligence.collector import collect_article
             try:
                 with st.spinner(ci['loading']):
