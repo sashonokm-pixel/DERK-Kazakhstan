@@ -949,7 +949,15 @@ if mode == 'Контент-анализ':
                 uploaded_review,
                 dtype=str,
                 keep_default_na=False
-            )
+            )            
+            preliminary_columns = {
+                "internal_agenda_preliminary": "kazakhstan_related",
+                "origin_agenda_preliminary": "homeland_related",
+            }
+
+            for source, target in preliminary_columns.items():
+                if source in review.columns and target not in review.columns:
+                    review[target] = review[source]
 
             required = {
                 "verified_article",
