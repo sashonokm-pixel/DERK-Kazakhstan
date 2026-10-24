@@ -876,7 +876,241 @@ CI_TRANSLATIONS = {
     },
 }
 
+
 if mode == 'Контент-анализ':
+    ci = CI_TRANSLATIONS[st.session_state.derk_language]
+
+    st.markdown("""
+    <style>
+    .ci-hero {
+        padding: 28px;
+        border: 1px solid #37567b;
+        border-radius: 22px;
+        background: linear-gradient(120deg, #0b1c38, #171638, #102947);
+        box-shadow: 0 0 35px #266bff16;
+        margin-bottom: 22px;
+    }
+    .ci-eyebrow {
+        color: #ffab54;
+        font-size: 12px;
+        letter-spacing: 3px;
+        font-weight: 700;
+    }
+    .ci-heading {
+        color: #f4f8ff;
+        font-size: clamp(26px, 4vw, 40px);
+        font-weight: 800;
+        margin: 12px 0;
+    }
+    .ci-description {color: #afc5e4; font-size: 15px;}
+    </style>
+    <div class="ci-hero">
+        <div class="ci-eyebrow">DERK / RESEARCH INTELLIGENCE</div>
+        <div class="ci-heading">Content Intelligence</div>
+        <div class="ci-description">
+            Digital ethnic representation · Comparative content analysis
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
+
+    st.subheader("Исследовательские показатели")
+
+    community = st.selectbox(
+        "Этническое сообщество",
+        ["Немцы", "Русские", "Корейцы", "Уйгуры"],
+        key="ci_community"
+    )
+
+    homelands = {
+        "Немцы": "Германия",
+        "Русские": "Россия",
+        "Корейцы": "Корея",
+        "Уйгуры": "Историческая родина — требует уточнения",
+    }
+    homeland = homelands[community]
+
+    st.caption(
+        "Пилотная модель: доля публикаций о Казахстане, "
+        "доля публикаций об исторической родине и наличие "
+        "казахоязычного контента."
+    )
+
+    uploaded_review = st.file_uploader(
+        "Загрузить проверенную таблицу content_review.csv",
+        type=["csv"],
+        key="ci_review_upload"
+    )
+
+    result = None
+
+    if uploaded_review is not None:
+        try:
+            review = pd.read_csv(
+                uploaded_review,
+                dtype=str,
+                keep_default_na=False
+            )
+
+            required = {
+                "verified_article",
+                "kazakhstan_related",
+                "homeland_related",
+                "language",
+            }
+
+            missing = required - set(review.columns)
+
+            if missing:
+                st.error(
+                    "В таблице отсутствуют поля: "
+                    + ", ".join(sorted(missing))
+                )
+            else:
+                for field in required:
+                    review[field] = (
+                        review[field].astype(str).str.strip().str.lower()
+                    )
+
+                valid_labels = (
+                    review["verified_article"].isin(["yes", "no"])
+                    & review["kazakhstan_related"].isin(["yes", "no"])
+                    & review["homeland_related"].isin(["yes", "no"])
+                )
+
+                verified = review[
+                    valid_labels
+                    & review["verified_article"].eq("yes")
+                ].copy()
+
+                total = len(verified)
+
+                if total:
+                    kaz = 100 * (
+                        verified["kazakhstan_related"].eq("yes").sum()
+                        / total
+                    )
+                    home = 100 * (
+                        verified["homeland_related"].eq("yes").sum()
+                        / total
+                    )
+                    kazakh = verified["language"].eq("kk").any()
+
+                    result = {
+                        "kazakhstan": round(kaz, 1),
+                        "homeland": round(home, 1),
+                        "kazakh": kazakh,
+                        "total": total,
+                    }
+
+                st.caption(
+                    f"Строк в файле: {len(review)} · "
+                    f"Подтверждённых статей с полной разметкой: {total}"
+                )
+
+        except Exception as exc:
+            st.error(f"Ошибка обработки CSV: {exc}")
+
+    if result is None:
+        st.info(
+            "Ожидаются проверенные данные. "
+            "Проценты не рассчитываются до подтверждения публикаций."
+        )
+    else:
+        a, b, c = st.columns(3)
+
+        with a:
+            st.metric(
+                "Связь с Казахстаном",
+                f"{result['kazakhstan']}%"
+            )
+        with b:
+            st.metric(
+                f"Связь: {homeland}",
+                f"{result['homeland']}%"
+            )
+        with c:
+            st.metric(
+                "Казахский язык",
+                "Обнаружен" if result["kazakh"] else "Не обнаружен"
+            )
+
+        chart = pd.DataFrame({
+            "Показатель": ["Казахстан", homeland],
+            "Доля, %": [
+                result["kazakhstan"],
+                result["homeland"],
+            ],
+        })
+
+        fig = px.bar(
+            chart,
+            x="Показатель",
+            y="Доля, %",
+            color="Показатель",
+            color_discrete_sequence=["#38bdf8", "#ff963f"],
+            text="Доля, %",
+        )
+
+        fig.update_traces(
+            texttemplate="%{text:.1f}%",
+            textposition="outside",
+        )
+        fig.update_layout(
+            height=400,
+            yaxis_range=[0, 110],
+            showlegend=False,
+            paper_bgcolor="#071426",
+            plot_bgcolor="#071426",
+            font_color="#e9f3ff",
+            yaxis_title="Доля публикаций, %",
+            xaxis_title="",
+        )
+
+        st.plotly_chart(fig, use_container_width=True)
+        st.caption(
+            f"Основание расчёта: {result['total']} "
+            "подтверждённых публикаций. "
+            "Показатели могут пересекаться."
+        )
+
+    st.divider()
+
+    with st.expander("Проверка отдельной публикации"):
+        st.caption(ci["note"])
+
+        article_url = st.text_input(
+            ci["url"],
+            value=(
+                "https://wiedergeburt-kasachstan.de/"
+                "gruppa-zdorovya-otkryvaem-astanu-s-novoj-storony/"
+            ),
+            key="derk_article_url",
+        )
+
+        if st.button(ci["button"], key="derk_analyse_article"):
+            from content_intelligence.collector import collect_article
+
+            try:
+                with st.spinner(ci["loading"]):
+                    article = collect_article(article_url)
+
+                st.success(ci["success"])
+                st.write(f"**{ci['title']}:**", article.get("title") or "—")
+                st.write(f"**{ci['date']}:**", article.get("date") or "—")
+                st.write(f"**{ci['author']}:**", article.get("author") or "—")
+                st.write(
+                    f"**{ci['language']}:**",
+                    article.get("language") or "—"
+                )
+                st.text_area(
+                    ci["text"],
+                    article.get("text") or "",
+                    height=350,
+                )
+
+            except Exception as exc:
+                st.error(f"{ci['error']}: {exc}")
+
     ci = CI_TRANSLATIONS[st.session_state.derk_language]
     st.divider()
     with st.expander(ci['heading'], expanded=False):
