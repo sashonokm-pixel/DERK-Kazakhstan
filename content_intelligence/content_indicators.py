@@ -1,75 +1,120 @@
 
-"""DERK Content Intelligence: three research indicators.
+"""DERK Content Intelligence — three research indicators.
 
-Analyses a manually verified article corpus.
-Read-only: does not change the database or source files.
+Input: derk_results/article_corpus.csv
+Output: derk_results/content_review.csv
+        derk_results/content_summary.csv
+
+No database writes. Human verification is required.
 """
 
 import csv
 from pathlib import Path
 
+SOURCE = Path("derk_results/article_corpus.csv")
+REVIEW = Path("derk_results/content_review.csv")
+SUMMARY = Path("derk_results/content_summary.csv")
 
-def analyse_articles(articles, homeland, kazakh_language="kk"):
-    """Calculate indicators from manually coded article records."""
-    articles = list(articles)
-    total = len(articles)
+HOMELAND = "Germany"
 
-    if total == 0:
-        return {
-            "total_articles": 0,
-            "kazakhstan_percent": None,
-            "homeland_percent": None,
-            "kazakh_content": None,
+def read_csv(path):
+    with path.open("r", encoding="utf-8-sig", newline="") as f:
+        return list(csv.DictReader(f))
+
+def write_csv(path, rows, fields):
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with path.open("w", encoding="utf-8-sig", newline="") as f:
+        writer = csv.DictWriter(f, fieldnames=fields)
+        writer.writeheader()
+        writer.writerows(rows)
+
+def prepare_review():
+    """Preserve existing human labels when regenerating the review."""
+    existing = {}
+    if REVIEW.exists():
+        existing = {
+            row["url"]: row for row in read_csv(REVIEW)
         }
 
-    kazakhstan_count = sum(
-        1 for article in articles
-        if str(article["kazakhstan_related"]).strip().lower() == "yes"
-    )
+    rows = []
+    for article in read_csv(SOURCE):
+        url = article.get("url", "")
+        old = existing.get(url, {})
 
-    homeland_count = sum(
-        1 for article in articles
-        if str(article["homeland_related"]).strip().lower() == "yes"
-    )
+        rows.append({
+            "url": url,
+            "title": article.get("title", ""),
+            "date": article.get("date", ""),
+            "language": article.get("language", ""),
+            "text": article.get("text", ""),
+            "kazakhstan_related": old.get("kazakhstan_related", ""),
+            "homeland_related": old.get("homeland_related", ""),
+            "verified_article": old.get("verified_article", ""),
+        })
 
-    kazakh_content = any(
-        str(article["language"]).strip().lower() == kazakh_language
-        for article in articles
+    fields = [
+        "url", "title", "date", "language", "text",
+        "kazakhstan_related", "homeland_related",
+        "verified_article"
+    ]
+    write_csv(REVIEW, rows, fields)
+    return rows
+
+def calculate(rows):
+    """Only verified articles with complete labels are analysed."""
+    valid = []
+    for row in rows:
+        labels = [
+            row.get("verified_article", "").strip().lower(),
+            row.get("kazakhstan_related", "").strip().lower(),
+            row.get("homeland_related", "").strip().lower(),
+        ]
+        if all(label in ("yes", "no") for label in labels):
+            if labels[0] == "yes":
+                valid.append(row)
+
+    total = len(valid)
+    if not total:
+        return {
+            "articles": 0,
+            "kazakhstan_percent": "",
+            "homeland_percent": "",
+            "kazakh_language": "not_assessed",
+        }
+
+    kaz = sum(
+        r["kazakhstan_related"].strip().lower() == "yes"
+        for r in valid
+    )
+    homeland = sum(
+        r["homeland_related"].strip().lower() == "yes"
+        for r in valid
+    )
+    kazakh = any(
+        r.get("language", "").strip().lower() == "kk"
+        for r in valid
     )
 
     return {
-        "total_articles": total,
-        "homeland": homeland,
-        "kazakhstan_percent": round(kazakhstan_count / total * 100, 1),
-        "homeland_percent": round(homeland_count / total * 100, 1),
-        "kazakh_content": kazakh_content,
+        "articles": total,
+        "kazakhstan_percent": round(100 * kaz / total, 1),
+        "homeland_percent": round(100 * homeland / total, 1),
+        "kazakh_language": "yes" if kazakh else "no_in_sample",
     }
 
+def main():
+    rows = prepare_review()
+    result = calculate(rows)
+    result["historical_homeland"] = HOMELAND
 
-def load_verified_corpus(filename):
-    """Read a manually reviewed CSV with the required coding fields."""
-    required = {
-        "kazakhstan_related",
-        "homeland_related",
-        "language",
-    }
+    write_csv(SUMMARY, [result], list(result.keys()))
 
-    with Path(filename).open(encoding="utf-8-sig", newline="") as stream:
-        reader = csv.DictReader(stream)
-        missing = required - set(reader.fieldnames or [])
+    print("DERK Content Intelligence")
+    print("Articles awaiting review:", len(rows))
+    print("Verified results:", result)
+    print("Review file:", REVIEW)
+    print("Summary file:", SUMMARY)
 
-        if missing:
-            raise ValueError(
-                "Missing research columns: " + ", ".join(sorted(missing))
-            )
+if __name__ == "__main__":
+    main()
 
-        articles = list(reader)
-
-    for number, article in enumerate(articles, start=2):
-        for field in ("kazakhstan_related", "homeland_related"):
-            if str(article[field]).strip().lower() not in ("yes", "no"):
-                raise ValueError(
-                    f"Row {number}: {field} must be yes or no"
-                )
-
-    return articles
