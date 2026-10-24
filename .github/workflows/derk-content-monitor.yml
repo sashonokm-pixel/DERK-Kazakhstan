@@ -77,6 +77,10 @@ jobs:
         run: |
           python content_intelligence/thematic_analysis.py derk_results/article_corpus.csv --output-dir derk_results/topic_results --topics 4
 
+      - name: Calculate DERK content indicators
+        run: |
+          python -m content_intelligence.content_indicators
+
       - name: Upload research CSV files
         if: always()
         uses: actions/upload-artifact@v4
