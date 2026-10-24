@@ -82,7 +82,7 @@ jobs:
           python -m content_intelligence.content_indicators
       - name: Preliminary coding of DERK publications
         run: |
-           python -m content_intelligence.derk_preliminary_coding derk_results/article_corpus.csv --ethnos Germans --out derk_results/content_preliminary_review.csv
+           python -m content_intelligence.derk_preliminary_coding derk_results/article_corpus.csv --ethnos Немцы --out derk_results/content_preliminary_review.csv
       - name: Upload research CSV files
         if: always()
         uses: actions/upload-artifact@v4
