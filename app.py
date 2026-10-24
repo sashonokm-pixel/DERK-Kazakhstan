@@ -1111,26 +1111,4 @@ if mode == 'Контент-анализ':
             except Exception as exc:
                 st.error(f"{ci['error']}: {exc}")
 
-    ci = CI_TRANSLATIONS[st.session_state.derk_language]
-    st.divider()
-    with st.expander(ci['heading'], expanded=False):
-        st.caption(ci['note'])
-        article_url = st.text_input(
-            ci['url'],
-            value='https://wiedergeburt-kasachstan.de/gruppa-zdorovya-otkryvaem-astanu-s-novoj-storony/',
-            key='derk_article_url',
-        )
-       if st.button(ci['button'], key='derk_analyse_article_legacy'):
-            from content_intelligence.collector import collect_article
-            try:
-                with st.spinner(ci['loading']):
-                    article = collect_article(article_url)
-                st.success(ci['success'])
-                st.write(f"**{ci['title']}:**", article['title'] or ci['unknown_m'])
-                st.write(f"**{ci['date']}:**", article['date'] or ci['unknown_f'])
-                st.write(f"**{ci['author']}:**", article['author'] or ci['unknown_m'])
-                st.write(f"**{ci['language']}:**", article['language'] or ci['unknown_m'])
-                st.text_area(ci['text'], article['text'], height=350)
-            except Exception as exc:
-                st.error(f"{ci['error']}: {exc}")
-    
+   
