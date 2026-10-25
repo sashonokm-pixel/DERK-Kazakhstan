@@ -11,7 +11,7 @@ from .discovery import discover_candidates
 from .classifier import classify_page, FIELDS
 from .derk_preliminary_coding import classify, RULES
 
-SOURCES = ["https://koreans.kz/news"]
+SOURCES = ["https://koreans.kz/ru/novosti"]
 OUT = Path("data/content_intelligence/korean_preliminary_review.csv")
 AUDIT = Path("derk_results/korean_all_candidates.csv")
 
@@ -30,7 +30,7 @@ def run():
             parsed = urlparse(url)
             # Accept news article URLs, including possible query-based article links.
             # Other navigation links are retained only in the audit if needed later.
-            if not parsed.path.lower().startswith("/news"):
+            if not parsed.path.lower().startswith("/ru/novosti/"):
                 continue
             if url.rstrip("/") == source.rstrip("/") or url in seen:
                 continue
@@ -67,3 +67,4 @@ def run():
 
 if __name__ == "__main__":
     run()
+
