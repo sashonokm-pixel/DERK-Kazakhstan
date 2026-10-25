@@ -934,7 +934,7 @@ if mode == 'Контент-анализ':
         "Автоматические тематические сигналы требуют исследовательской проверки."
     )
 
-        from pathlib import Path
+    from pathlib import Path
 
     results_path = Path(
         "data/content_intelligence/russian_preliminary_review.csv"
