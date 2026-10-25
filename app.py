@@ -936,11 +936,11 @@ if mode == 'Контент-анализ':
 
     from pathlib import Path
 
-   results_path = Path(
-    "data/content_intelligence/russian_preliminary_review.csv"
-    if community == "Русские"
-    else "data/content_intelligence/content_preliminary_review.csv"
-)
+        results_path = Path(
+        "data/content_intelligence/russian_preliminary_review.csv"
+        if community == "Русские"
+        else "data/content_intelligence/content_preliminary_review.csv"
+    )
     if community not in ("Немцы", "Русские"):
         st.info("Пока подключён только немецкий пилот. Другие сообщества добавим позднее.")
     elif not results_path.is_file():
