@@ -16,6 +16,23 @@ OUT = Path("data/content_intelligence/korean_preliminary_review.csv")
 AUDIT = Path("derk_results/korean_all_candidates.csv")
 
 
+def correct_korean_title(row: dict) -> dict:
+    """Correct site-specific title only when the article text and listing agree."""
+    if row.get("classification") != "article":
+        return row
+    lines = (row.get("text") or "").splitlines()
+    first_line = lines[0].strip() if lines else ""
+    hint = (row.get("title_hint") or "").casefold()
+    # On koreans.kz the extracted text starts with the actual article heading.
+    # Require agreement with the listing to avoid treating body text as a title.
+    if 12 <= len(first_line) <= 250 and first_line[:25].casefold() in hint:
+        row["title"] = first_line
+    else:
+        row["classification"] = "needs_review"
+        row["reason"] = "Заголовок не подтверждён по списку новостей; ручная проверка"
+    return row
+
+
 def run():
     candidates, seen = [], set()
     for source in SOURCES:
@@ -37,7 +54,7 @@ def run():
             seen.add(url)
             candidates.append(item)
     print("Unique candidate links:", len(candidates), flush=True)
-    rows = [classify_page(item) for item in candidates]
+    rows = [correct_korean_title(classify_page(item)) for item in candidates]
     AUDIT.parent.mkdir(parents=True, exist_ok=True)
     with AUDIT.open("w", encoding="utf-8-sig", newline="") as f:
         writer = csv.DictWriter(f, fieldnames=FIELDS)
@@ -67,4 +84,3 @@ def run():
 
 if __name__ == "__main__":
     run()
-
