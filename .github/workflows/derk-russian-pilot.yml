@@ -1,0 +1,43 @@
+name: DERK Russian Pilot - ARSK
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  russian-pilot:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout experimental branch
+        uses: actions/checkout@v4
+        with:
+          ref: feature-content-intelligence
+      - name: Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install dependencies
+        run: pip install requests beautifulsoup4 trafilatura langdetect pandas
+      - name: Collect and screen ARSK news
+        run: python -m content_intelligence.russian_pilot
+      - name: Upload audit files
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: derk-russian-arsk-audit
+          path: |
+            derk_results/russian_all_candidates.csv
+            data/content_intelligence/russian_preliminary_review.csv
+          if-no-files-found: warn
+      - name: Save Russian pilot corpus
+        if: success()
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add data/content_intelligence/russian_preliminary_review.csv
+          if ! git diff --cached --quiet; then
+            git commit -m "Update Russian ARSK pilot corpus [skip ci]"
+            git push origin HEAD:feature-content-intelligence
+          fi
