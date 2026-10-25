@@ -936,7 +936,7 @@ if mode == 'Контент-анализ':
 
     from pathlib import Path
 
-        results_files = {
+    results_files = {
         "Немцы": "content_preliminary_review.csv",
         "Русские": "russian_preliminary_review.csv",
         "Корейцы": "korean_preliminary_review.csv",
