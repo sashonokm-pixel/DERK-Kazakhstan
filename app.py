@@ -966,7 +966,16 @@ if mode == 'Контент-анализ':
                     checked = int(review["verified_article"].str.lower().eq("yes").sum())
                     internal_pct = 100 * internal / total
                     origin_pct = 100 * origin / total
-                    kk_pct = 100 * confirmed_kk / total
+                    # Site-level indicator, independent of the language of sampled articles.
+                    # Researcher-observed language switcher; functional translation needs QA.
+                    site_language_access = {
+                        "Немцы": {"kazakh_version_available": True,
+                                  "evidence": "Переключатель языка сайта (наблюдение исследователя)",
+                                  "verified_functionality": False},
+                    }
+                    site_language = site_language_access.get(community, {})
+                    state_language_pct = (100.0 if site_language.get("kazakh_version_available")
+                                          else 0.0) if site_language else None
 
                     st.warning(
                         "Предварительные результаты: автоматические сигналы, "
@@ -982,35 +991,37 @@ if mode == 'Контент-анализ':
                     with b:
                         st.metric("Повестка страны происхождения этноса", f"{origin_pct:.1f}%", f"{origin} из {total}", delta_color="off")
                     with c:
-                        st.metric("Присутствие государственного языка", "Не подтверждено", f"{confirmed_kk} из {total} определены как kk", delta_color="off")
+                        st.metric("Доступность государственного языка", f"{state_language_pct:.0f}%" if state_language_pct is not None else "Не проверено", "Казахская версия сайта предусмотрена" if state_language_pct == 100 else "Нет подтверждённых данных", delta_color="off")
                     st.caption(
-                        "Третий показатель: автоматический детектор не подтвердил "
-                        f"казахоязычные публикации (сигналов для проверки: {language_review}). "
-                        "Это не доказывает отсутствия казахского языка на сайте."
+                        "Третий показатель измеряет наличие казахской версии сайта, а не долю "
+                        "оригинальных публикаций на казахском языке. "
+                        "Основание: переключатель языка, обнаруженный исследователем. "
+                        "Корректность перевода всех страниц ещё требует проверки."
                     )
 
                     chart = pd.DataFrame({
-                        "Показатель": ["Внутренняя повестка", "Повестка страны происхождения этноса", "Присутствие государственного языка*"],
-                        "Доля, %": [internal_pct, origin_pct, kk_pct],
-                        "Количество": [internal, origin, confirmed_kk],
+                        "Показатель": ["Внутренняя повестка", "Повестка страны происхождения этноса", "Доступность государственного языка*"],
+                        "Значение, %": [internal_pct, origin_pct, state_language_pct],
+                        "Количество": [internal, origin, None],
                     })
                     fig = px.bar(
-                        chart, x="Показатель", y="Доля, %", color="Показатель",
+                        chart, x="Показатель", y="Значение, %", color="Показатель",
                         color_discrete_sequence=["#38bdf8", "#ff963f", "#b48aff"],
-                        text="Доля, %", custom_data=["Количество"],
+                        text="Значение, %", custom_data=["Количество"],
                     )
                     fig.update_traces(texttemplate="%{text:.1f}%", textposition="outside")
                     fig.update_layout(
                         height=430, yaxis_range=[0, 110], showlegend=False,
                         paper_bgcolor="#071426", plot_bgcolor="#071426",
-                        font_color="#e9f3ff", yaxis_title="Доля публикаций, %", xaxis_title="",
+                        font_color="#e9f3ff", yaxis_title="Значение показателя, %", xaxis_title="",
                         xaxis_tickangle=-12, margin=dict(b=105),
                     )
                     st.plotly_chart(fig, use_container_width=True)
                     st.caption(
-                        "* Третий столбец — доля текстов с автоматически определённым языком kk, "
-                        "а не окончательная оценка присутствия государственного языка. "
-                        "Повестки могут пересекаться; их проценты не суммируются."
+                        "* Третий столбец — бинарная доступность казахской версии сайта "
+                        "(100% — предусмотрена; 0% — отсутствует). Это не доля публикаций. "
+                        "Первые два столбца — предварительные доли публикаций; "
+                        "повестки могут пересекаться."
                     )
                     st.subheader("Публикации и предварительная разметка")
                     view = review[[
