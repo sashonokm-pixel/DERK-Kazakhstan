@@ -1,6 +1,11 @@
 name: DERK Russian Pilot - ARSK
 on:
   workflow_dispatch:
+  push:
+    branches:
+      - feature-content-intelligence
+    paths:
+      - '.github/workflows/derk-russian-pilot.yml'
 
 permissions:
   contents: write
